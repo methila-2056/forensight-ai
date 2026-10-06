@@ -32,6 +32,7 @@ cloned. Dependencies below are used as libraries only.
 | Pydantic | MIT | Request/response validation and serialisation |
 | SQLAlchemy | MIT | ORM and schema definitions |
 | python-dotenv | BSD-3-Clause | Loads `.env` configuration |
+| python-multipart | Apache-2.0 | Multipart form parsing for evidence upload |
 | pytest | MIT | Test framework |
 | httpx | BSD-3-Clause | Test client transport for FastAPI tests |
 
@@ -40,7 +41,7 @@ bundled LICENSE files of the exact versions in `backend/requirements*.txt`.
 
 Planned for later phases (declared now, used when those phases land):
 scikit-learn (BSD-3-Clause), pandas (BSD-3-Clause), numpy (BSD-3-Clause),
-reportlab (BSD-3-Clause), python-multipart (Apache-2.0) for uploads.
+reportlab (BSD-3-Clause) for reports.
 
 ## Frontend dependencies (`frontend/package.json`)
 
@@ -51,6 +52,7 @@ reportlab (BSD-3-Clause), python-multipart (Apache-2.0) for uploads.
 | Vite | MIT | Dev server and bundler |
 | @vitejs/plugin-react | MIT | React support for Vite |
 | Tailwind CSS, @tailwindcss/vite | MIT | Styling |
+| react-router-dom | MIT | Client-side routing for case/evidence pages |
 | Recharts (planned, Phase 5+) | MIT | Charts |
 | React Flow / reactflow (planned, Phase 5+) | MIT | Evidence graph |
 

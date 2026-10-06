@@ -1,7 +1,7 @@
 # FORENSIGHT AI — Architecture v1.1
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phase 0 implemented · This document is the approved specification for all subsequent phases.
+Status: Phase 0 + Phase 1 implemented · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -257,13 +257,25 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/` | Service descriptor |
 | GET | `/docs`, `/openapi.json` | Interactive API documentation |
 
+**Implemented (Phase 1):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST/GET | `/api/cases` | Create / list cases |
+| GET/PATCH | `/api/cases/{case_id}` | Case detail / status+severity update |
+| GET | `/api/cases/{case_id}/custody` | Case-level chain of custody |
+| POST/GET | `/api/cases/{case_id}/evidence` | Upload evidence / inventory |
+| GET | `/api/evidence/{evidence_id}` | Evidence detail incl. recorded SHA-256 |
+| POST | `/api/evidence/{evidence_id}/verify` | Evidence Integrity Verification |
+| POST | `/api/evidence/{evidence_id}/integrity-test` | Controlled Integrity Test (copy-based) |
+| GET | `/api/evidence/{evidence_id}/custody` | Evidence chain of custody |
+| GET | `/api/evidence/{evidence_id}/integrity-history` | Recorded verification results |
+| GET | `/api/policy` | Upload policy (size cap, allowed extensions) |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
-POST/GET/PATCH /api/cases[/{case_id}]        GET /api/cases/{id}/stats · /activity
-POST /api/cases/{id}/evidence                GET /api/cases/{id}/evidence
 GET  /api/evidence/{ev_id}[/download|/records]
-POST /api/evidence/{ev_id}/verify            POST /api/evidence/{ev_id}/integrity-test   (copy-based)
 POST /api/cases/{id}/process                 GET /api/cases/{id}/events · /processing-log
 POST /api/cases/{id}/analyze                 GET /api/cases/{id}/findings · /ml-metrics
 GET  /api/findings/{uid}/trace               PATCH /api/findings/{uid}   (Confirmed/Dismissed)
@@ -304,7 +316,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
 | **0** | Scaffolding, data model, terminology guard, write-once store, frontend skeleton | 12 acceptance criteria below — **DONE** |
-| 1 | Case management + upload + SHA-256 verify + controlled integrity test + custody UI | upload→hash→verify→mismatch works in UI |
+| **1** | Case management + upload + SHA-256 verify + controlled integrity test + custody UI | upload→hash→verify→mismatch works in UI — **DONE** |
 | 2 | Parsers + normalizer + processing log + events UI | demo files → correct counts, rejects explained |
 | 3 | Rules + anomaly detection + fusion + explainability UI | Scenario C fires, Scenario A quiet, metrics real |
 | 4 | Reasoned correlation + reconstructed timeline + dashboard | multi-source chain, traceable entries |
@@ -333,6 +345,23 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 12 | `.gitignore` + `.env.example` with approved settings | ✅ |
 
 *(Status values are re-verified at the end of each phase; see Changelog.)*
+
+### Phase 1 acceptance criteria (all 12) — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Create/list/get/update cases (`CASE-2026-NNN`) with validation + error envelope | ✅ |
+| 2 | Evidence upload (multipart) with size cap, extension allowlist, content checks, sanitised storage names | ✅ |
+| 3 | SHA-256 recorded at ingest; genuine re-read verification of the stored file at ingest | ✅ |
+| 4 | `POST /verify` returns `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` and is repeatable | ✅ |
+| 5 | Controlled integrity test mutates a copy outside the raw store; original byte-identical afterwards | ✅ |
+| 6 | Integrity history recorded (verified/mismatch results persisted) | ✅ |
+| 7 | Chain of custody recorded (Evidence Added, Hash Generated, Integrity Verified/Mismatch, Integrity Test) and queryable per case and per evidence | ✅ |
+| 8 | Raw evidence remains write-once; no endpoint overwrites stored files | ✅ |
+| 9 | Case list + case detail + evidence inventory UI with hash display, verify button, controlled test button, custody log | ✅ |
+| 10 | Structured error envelope on all error paths (400/404/413/415) | ✅ |
+| 11 | `pytest` green (Phase 0 + Phase 1) and `npm run build` green | ✅ |
+| 12 | Documentation updated; banned terms still absent from constants and docs | ✅ |
 
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 

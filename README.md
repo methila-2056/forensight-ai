@@ -5,7 +5,7 @@ SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital F
 
 > FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, and maintains traceability from findings back to source evidence.
 
-**Current status:** Phase 0 — project scaffolding complete (backend skeleton, data model, terminology guard, write-once evidence store, frontend skeleton). Feature phases follow the plan in [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phase 1 — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, and chain of custody implemented (backend + UI). Parsing, analysis, correlation, timeline, assistant, and reporting follow the plan in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -60,10 +60,10 @@ forensight-ai/
 │   │   ├── main.py            # FastAPI app, OpenAPI, CORS, lifespan
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
-│   │   ├── routers/           # Phase 0: health only
-│   │   ├── services/          # Phase 1+
+│   │   ├── routers/           # health, cases, evidence (Phase 1)
+│   │   ├── services/          # case, evidence, integrity, custody (Phase 1)
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
-│   │   ├── security/          # Phase 1+ (upload validation)
+│   │   ├── security/uploads.py   # Phase 1: upload validation
 │   │   └── engines/           # parsing, rules, ml, correlation, timeline,
 │   │                          # graph, assistant, report (Phase 2+)
 │   ├── tests/                 # pytest suite (terminology, raw store, API, models)
@@ -111,7 +111,7 @@ python -m pytest tests/test_terminology.py -v
 
 The suite includes a terminology guard: banned phrases may not appear in the terminology constants, `README.md`, `ARCHITECTURE.md`, or `ATTRIBUTION.md`.
 
-## API (Phase 0)
+## API (Phase 0 + Phase 1)
 
 | Method | Path | Description |
 |---|---|---|
@@ -119,6 +119,19 @@ The suite includes a terminology guard: banned phrases may not appear in the ter
 | GET | `/` | Service descriptor |
 | GET | `/docs` | Interactive OpenAPI documentation |
 | GET | `/openapi.json` | OpenAPI schema |
+| POST | `/api/cases` | Create a case (`CASE-2026-NNN`) |
+| GET | `/api/cases` | List cases with evidence/finding counts |
+| GET | `/api/cases/{case_id}` | Case detail |
+| PATCH | `/api/cases/{case_id}` | Update status/severity |
+| GET | `/api/cases/{case_id}/custody` | Case-level chain of custody |
+| POST | `/api/cases/{case_id}/evidence` | Upload evidence (multipart, size/type/content checks) |
+| GET | `/api/cases/{case_id}/evidence` | Evidence inventory |
+| GET | `/api/evidence/{evidence_id}` | Evidence detail incl. recorded SHA-256 |
+| POST | `/api/evidence/{evidence_id}/verify` | Evidence Integrity Verification |
+| POST | `/api/evidence/{evidence_id}/integrity-test` | Controlled Integrity Test on a demonstration copy |
+| GET | `/api/evidence/{evidence_id}/custody` | Evidence chain of custody |
+| GET | `/api/evidence/{evidence_id}/integrity-history` | Recorded verification results |
+| GET | `/api/policy` | Upload policy (size cap, allowed extensions) |
 
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
 

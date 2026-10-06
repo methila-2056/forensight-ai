@@ -95,7 +95,8 @@ class IntegrityResult(str, enum.Enum):
 class CustodyAction(str, enum.Enum):
     EVIDENCE_ADDED = "Evidence Added"
     HASH_GENERATED = "Hash Generated"
-    INTEGRITY_CHECK = "Integrity Check"
+    INTEGRITY_VERIFIED = "Integrity Verified"
+    INTEGRITY_MISMATCH = "Integrity Mismatch"
     INTEGRITY_TEST = "Integrity Test"
     PROCESSING_STARTED = "Analysis Started"
     PROCESSING_COMPLETED = "Analysis Completed"
@@ -255,7 +256,7 @@ class ForensicEvent(Base):
     extra: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
     dedupe_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
-    evidence: Mapped["Evidence"] = relationship("Evidence")
+    evidence: Mapped["Evidence"] = relationship("Evidence", overlaps="events")
     raw_record: Mapped[Optional["RawRecord"]] = relationship("RawRecord")
 
 
