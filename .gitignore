@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Local application data (never commit)
+backend/evidence_store/
+backend/data/*.db
+backend/data/*.db-journal
+backend/data/*.db-wal
+backend/ml_artifacts/*
+!backend/ml_artifacts/.gitkeep
+!backend/data/.gitkeep
+
+# Node / frontend build
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Environment (only .env.example is committed)
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
