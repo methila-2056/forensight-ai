@@ -47,7 +47,7 @@ export default function AppShell(): JSX.Element {
       </main>
 
       <footer className="border-t border-slate-800 px-6 py-4 text-center font-mono text-[10px] uppercase tracking-widest text-slate-600">
-        {PRODUCT_NAME} · Phase 1 · SUTRAM 2026 · Evidence integrity verification only — findings
+        {PRODUCT_NAME} · Phase 2 · SUTRAM 2026 · Parsing + event normalization only — findings
         require investigator validation
       </footer>
     </div>

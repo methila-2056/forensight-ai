@@ -1,0 +1,82 @@
+{
+  "events": [
+    {
+      "@timestamp": "2026-10-05T13:00:00Z",
+      "level": "info",
+      "hostname": "DC-01",
+      "service": "ntds",
+      "message": "Directory service started",
+      "pid": 1200
+    },
+    {
+      "@timestamp": "2026-10-05T13:05:00+05:30",
+      "level": "warning",
+      "hostname": "SRV-WEB01",
+      "service": "nginx",
+      "message": "Upstream response timeout",
+      "duration_ms": 5000,
+      "detail": null
+    },
+    {
+      "@timestamp": "2026-10-05T13:10:00Z",
+      "level": "error",
+      "hostname": "SRV-WEB01",
+      "service": "nginx",
+      "message": "Connection refused",
+      "remote": { "ip": "192.0.2.44", "port": 51234 },
+      "retries": [1, 2]
+    },
+    {
+      "timestamp": "2026-10-05 13:15:00",
+      "level": "info",
+      "hostname": "DC-01",
+      "service": "krbtgt",
+      "message": "Service ticket granted",
+      "tags": ["auth", "kerberos"]
+    },
+    {
+      "@timestamp": "2026-10-05T13:20:00Z",
+      "level": "fatal",
+      "hostname": "SRV-FILE01",
+      "service": "smbd",
+      "message": "Disk volume full",
+      "online": false
+    },
+    {
+      "@timestamp": "2026-10-05T13:00:00Z",
+      "level": "info",
+      "hostname": "DC-01",
+      "service": "ntds",
+      "message": "Directory service started",
+      "pid": 1200
+    },
+    {
+      "@timestamp": "broken-timestamp",
+      "level": "info",
+      "hostname": "DC-01",
+      "service": "ntds",
+      "message": "Malformed timestamp sample"
+    },
+    {
+      "level": "info",
+      "hostname": "DC-01",
+      "service": "ntds",
+      "message": "Missing timestamp sample"
+    },
+    {
+      "@timestamp": "2026-10-05T13:30:00Z",
+      "hostname": "WS-01",
+      "service": "agent",
+      "message": "No level present in this record"
+    },
+    42,
+    {
+      "@timestamp": "2026-10-05 13:35:00",
+      "level": "error",
+      "hostname": "WS-07",
+      "service": "agent",
+      "message": "Suspicious process blocked by policy",
+      "process": { "name": "bad.exe", "pid": 4400 }
+    }
+  ]
+}

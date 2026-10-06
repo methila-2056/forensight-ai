@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.1
+# FORENSIGHT AI — Architecture v1.2
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phase 0 + Phase 1 implemented · This document is the approved specification for all subsequent phases.
+Status: Phases 0, 1, and 2 implemented · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -113,8 +113,9 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | `investigation_runs` | Pipeline runs | stage, status, **stats (ML methodology + fusion weights)**, error |
 | `investigator_notes` | Investigator annotations | author, body, finding_uid |
 | `model_metrics` | Real evaluation results | precision, recall, f1, feature_list, dataset_desc |
+| `processing_runs` | (v1.2) Parse/normalize runs | run_id, evidence_id, parser, status, received/normalized/rejected/duplicates, warnings, error, timestamps |
 
-Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent`; every finding carries event-ID and evidence-ID arrays for direct traceability.
+Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent` and `Evidence 1→N ProcessingRun`; every finding carries event-ID and evidence-ID arrays for direct traceability.
 
 ## 7. Evidence integrity verification (terminology contract)
 
@@ -142,6 +143,8 @@ REPORT  → PDF/JSON → custody(Report Generated)
 ```
 
 **Timestamp handling:** ISO-8601 (±Z), `YYYY-MM-DD HH:MM:SS[.fff]`, Apache-style, US format, epoch s/ms — tried in order; unparseable rows are rejected *with reason* and retained. **Field aliases:** `user|username|account → user`, `ip|src_ip|source_ip → source_ip`, `ts|time|timestamp|@timestamp → timestamp`, etc.
+
+**Processing-run semantics (v1.2):** a run reads at most `MAX_RECORDS_PER_RUN` records (default 200 000); any remainder is reported as a warning. Status is `FAILED` when the file cannot be processed safely (unknown format, unreadable content, or recorded SHA-256 no longer matching the stored bytes); `PARTIAL` when rows were rejected, no rows were produced (`received == 0`), or the record cap truncated the input; otherwise `COMPLETED`. Rejects are explained and retained (`raw_records.reject_reason`); duplicates are marked on derived events (never deleted, never silently doubled in counts); reprocessing replaces the derived rows for that evidence and appends a new run entry without modifying raw bytes.
 
 ## 9. ML methodology (corrected, single strategy)
 
@@ -272,11 +275,21 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/api/evidence/{evidence_id}/integrity-history` | Recorded verification results |
 | GET | `/api/policy` | Upload policy (size cap, allowed extensions) |
 
+**Implemented (Phase 2):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/process` | Process selected (or all) evidence — parse, normalize, record a run per evidence item, custody `Analysis Started` / `Analysis Completed` |
+| GET | `/api/cases/{case_id}/processing-runs` | Processing run history (newest first) |
+| GET | `/api/cases/{case_id}/events` | Normalized events (filters: source_type, event_type, severity, user, host, time range, evidence) with limit/offset |
+| GET | `/api/cases/{case_id}/events/{event_id}` | Event detail with raw record + evidence SHA-256 (traceability chain) |
+| GET | `/api/evidence/{evidence_id}/processing` | Runs + parse counts for one evidence item |
+| GET | `/api/evidence/{evidence_id}/rejected-records` | Retained malformed/rejected rows with reasons |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
 GET  /api/evidence/{ev_id}[/download|/records]
-POST /api/cases/{id}/process                 GET /api/cases/{id}/events · /processing-log
 POST /api/cases/{id}/analyze                 GET /api/cases/{id}/findings · /ml-metrics
 GET  /api/findings/{uid}/trace               PATCH /api/findings/{uid}   (Confirmed/Dismissed)
 POST /api/cases/{id}/correlate               GET /api/cases/{id}/correlations · /timeline · /graph
@@ -293,6 +306,8 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 ## 17. Testing strategy
 
 - **Unit:** hashing (known vectors), integrity verified/mismatch, write-once refusal, each parser, normalizer (timestamps/aliases/rejects/dedupe), rule engine positive+negative, feature determinism, anomaly scoring range + seed reproducibility, classifier metrics real, correlation windows/link reasons, timeline ordering, graph generation, assistant intents incl. insufficient-evidence, PDF contains hashes.
+- **Parsing unit:** CSV header/encoding fallback/column normalize/row-numbering; JSON object/array/wrapper; detection precedence (JSON wins over extension, declared type, unknown-format errors); timestamp formats incl. epoch, Apache, offsets; normalizer metadata preservation of source-specific fields.
+- **Processing API:** run lifecycle (COMPLETED/PARTIAL/FAILED), record cap warning, integrity mismatch → FAILED run, unknown format → 422 + FAILED, rejects retained with reasons, duplicates marked with `duplicate_of`, reprocessing replaces derived rows, events list/detail + filter contract.
 - **API:** CRUD + happy/error paths (413/415/404/409).
 - **End-to-end:** demo load → verify → process → analyze → correlate → timeline → graph → assistant → report; asserts Scenario A quiet / C fires; raw hashes unchanged after pipeline; banned terms absent from UI strings.
 - **Regression gate every phase:** `pytest` green + `npm run build` green.
@@ -317,7 +332,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 |---|---|---|
 | **0** | Scaffolding, data model, terminology guard, write-once store, frontend skeleton | 12 acceptance criteria below — **DONE** |
 | **1** | Case management + upload + SHA-256 verify + controlled integrity test + custody UI | upload→hash→verify→mismatch works in UI — **DONE** |
-| 2 | Parsers + normalizer + processing log + events UI | demo files → correct counts, rejects explained |
+| 2 | Parsers + normalizer + processing log + events UI | demo files → correct counts, rejects explained — **DONE** |
 | 3 | Rules + anomaly detection + fusion + explainability UI | Scenario C fires, Scenario A quiet, metrics real |
 | 4 | Reasoned correlation + reconstructed timeline + dashboard | multi-source chain, traceable entries |
 | **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged |
@@ -363,6 +378,29 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 11 | `pytest` green (Phase 0 + Phase 1) and `npm run build` green | ✅ |
 | 12 | Documentation updated; banned terms still absent from constants and docs | ✅ |
 
+### Phase 2 acceptance criteria (all 18) — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Upload still enforces size cap, extension allowlist, content checks, sanitised storage names | ✅ |
+| 2 | SHA-256 re-verified against stored bytes before every processing run; mismatch → failed run | ✅ |
+| 3 | Format detection by extension + content + columns + declared type; unknown format → explicit `UNRECOGNIZED_EVIDENCE_FORMAT` error (never silent) | ✅ |
+| 4 | Safe readers for CSV (encoding fallback, header/column normalization, row numbering) and JSON (object/array/wrapper forms, key normalization); no unsafe deserialization | ✅ |
+| 5 | Common forensic event schema with source-specific fields preserved in `metadata` | ✅ |
+| 6 | Multi-format timestamp parsing tried in documented order; timezone handling assumed-UTC / converted-with-note / epoch; never invented — rejected rows keep the exact value | ✅ |
+| 7 | Required-field validation (timestamp, source_type, etc.); rejects explained via `reject_reason` | ✅ |
+| 8 | Severity standardized with a documented known-severity vocabulary | ✅ |
+| 9 | Duplicates detected and marked on derived events (`duplicate_of`); originals never modified or deleted | ✅ |
+| 10 | Malformed/rejected rows retained as raw records (evidence_id, row, reason, original content); never silently dropped | ✅ |
+| 11 | Processing run records status, parser, received/normalized/rejected/duplicate counts, warnings/error, started/completed | ✅ |
+| 12 | Status semantics enforced: PARTIAL when rejects/empty-input/cap-truncation, FAILED when unsafe, COMPLETED otherwise | ✅ |
+| 13 | Resource limits: `MAX_RECORDS_PER_RUN` truncation warning; retained content cap; web reader size cap | ✅ |
+| 14 | Run history per case and per evidence; parse counters reflected on evidence metadata | ✅ |
+| 15 | Events list with filters + pagination; event detail exposes raw record + recorded SHA-256 (traceability) | ✅ |
+| 16 | UI: evidence parse counters + status, Process action, runs summary, Events page with filters and traceable detail | ✅ |
+| 17 | Six synthetic, seeded, labelled demo datasets; identical counts on reprocessing; SYNTHETIC/DEMONSTRATION labels + README | ✅ |
+| 18 | Regression gate: `pytest` green (Phases 0–2) + `npm run build` green; raw hashes unchanged; docs updated; banned terms absent from constants and docs | ✅ |
+
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 
 1. **Integrity terminology.** SHA-256 is described only as recording and verifying *file integrity*. `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` mean byte-level match/mismatch with the recorded hash. A standing disclaimer states that hashing does not establish who created or collected a file. Naming is *Evidence Integrity Verification* everywhere (module, page, endpoints `/verify`, `/integrity-test`).
@@ -378,3 +416,14 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 11. **Core novelty.** Centred on *evidence-traceable AI-assisted forensic investigation* with the mandatory six-step ladder Finding → Reason → Forensic Event → Raw Record → Evidence File → Recorded SHA-256 in UI and report.
 12. **Scope control.** Modules divided into MUST-HAVE CORE / SECONDARY / STRETCH with an explicit cut order (Stretch → Secondary → never Core) and a core acceptance gate at Phase 4.5.
 13. **Product language.** Canonical one-paragraph description adopted verbatim (§1); the product is not described as autonomous, as an evidence-certifying system, as a replacement for investigators, or as a system that establishes criminal conduct.
+
+## 22. Changelog — v1.1 → v1.2 additions (Phase 2)
+
+1. **`processing_runs` table added (14th).** Each parse/normalize run on one evidence item records run_id (`RUN-{n:06d}`), parser, status (PENDING/PROCESSING/COMPLETED/PARTIAL/FAILED), received/normalized/rejected/duplicate counts, warnings, error code + message, and started/completed timestamps. `Evidence` gained `parse_ok` / `parse_rejected` counters; derived per-run UIDs are independent of event UIDs (`EVT-{n:06d}`).
+2. **Record cap.** `MAX_RECORDS_PER_RUN` (default 200 000) caps the records read in one run; the remainder is reported as a warning and the run is marked PARTIAL rather than silently truncated or overstating completion.
+3. **Status semantics.** `FAILED` for unsafe processing (unknown format, unreadable content, or recorded SHA-256 mismatch re-checked against stored bytes before each run); `PARTIAL` when rows were rejected, no rows were produced, or the cap truncated; otherwise `COMPLETED`.
+4. **Rejects retained, never deleted.** Every malformed/rejected row is stored as a raw record with `reject_reason` and the original content (cap 64 000 chars) and is exposed via `/evidence/{id}/rejected-records` and `/evidence/{id}/records`.
+5. **Duplicate handling.** Duplicates are detected within a run via a canonical hash over the dedupe key fields and are *marked* on derived events (`duplicate` + `duplicate_of` pointing at the origin event) — source rows are never modified or deleted, and duplicate events remain traceable to their raw record.
+6. **Reprocessing semantics.** A new run replaces the derived raw-record/event rows for that evidence and appends a run entry; raw evidence bytes and the recorded SHA-256 are never written to. Evidence status is restored across failed runs.
+7. **API additions.** `POST /cases/{id}/process`, `GET /cases/{id}/processing-runs`, `GET /cases/{id}/events`, `GET /cases/{id}/events/{event_id}`, `GET /evidence/{id}/processing`, `GET /evidence/{id}/rejected-records` (the last one is an addition beyond the Phase 2 endpoint list, for direct rejects review).
+8. **Timestamp assumptions documented.** Naive timestamps are treated as UTC with an explicit `assumed UTC (no timezone in source)` note; offset timestamps are converted to UTC with a note; epoch values carry `UTC (epoch value)`; unparseable timestamps are rejected without inventing a value.

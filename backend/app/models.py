@@ -2,8 +2,9 @@
 
 Table list:
 cases, evidence, integrity_checks, chain_of_custody, raw_records,
-forensic_events, rule_findings, ml_findings, classifier_results,
-correlations, investigation_runs, investigator_notes, model_metrics.
+forensic_events, processing_runs, rule_findings, ml_findings,
+classifier_results, correlations, investigation_runs, investigator_notes,
+model_metrics.
 
 Note: the normalized-event payload column is named "metadata" at the SQL level
 and exposed as the attribute ``extra`` to avoid clashing with the SQLAlchemy
@@ -134,6 +135,21 @@ class SourceType(str, enum.Enum):
     GENERIC = "generic"
 
 
+class ProcessingStatus(str, enum.Enum):
+    """Phase 2 processing-log status.
+
+    COMPLETED is claimed only when every received record was normalized;
+    PARTIAL when some records were rejected, none were found, or the run was
+    truncated by the record limit; FAILED when processing could not proceed.
+    """
+
+    PENDING = "Pending"
+    PROCESSING = "Processing"
+    COMPLETED = "Completed"
+    PARTIAL = "Partial"
+    FAILED = "Failed"
+
+
 # ---------------------------------------------------------------------------
 # Cases & evidence
 # ---------------------------------------------------------------------------
@@ -229,6 +245,42 @@ class RawRecord(Base):
     reject_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     evidence: Mapped["Evidence"] = relationship("Evidence")
+
+
+class ProcessingRun(Base):
+    """Phase 2 processing log: one row per evidence processing run.
+
+    Derived data only — processing never touches raw evidence bytes. Reprocessing
+    an evidence item replaces its derived rows (raw_records, forensic_events) and
+    appends a new run; run history is never rewritten.
+    """
+
+    __tablename__ = "processing_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    evidence_id: Mapped[int] = mapped_column(ForeignKey("evidence.id"), nullable=False, index=True)
+    parser: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    status: Mapped[str] = mapped_column(
+        _enum(ProcessingStatus, "processing_status"),
+        nullable=False,
+        default=ProcessingStatus.PENDING.value,
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    records_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_parsed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_normalized: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_rejected: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    duplicates_detected: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    warnings: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    evidence: Mapped["Evidence"] = relationship("Evidence")
+    case: Mapped["Case"] = relationship("Case")
 
 
 class ForensicEvent(Base):

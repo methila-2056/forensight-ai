@@ -1,0 +1,11 @@
+timestamp,user,host,url,domain,action
+2026-10-05 12:00:00,usr_alice,WS-01,https://mail.example/inbox,mail.example,visit
+2026-10-05 12:01:00,usr_alice,WS-01,https://portal.example/login,portal.example,form_submit
+2026-10-05 12:03:00,usr_bob,WS-07,https://files.example/download?r=72,files.example,download
+2026-10-05 12:03:00,usr_bob,WS-07,https://files.example/download?r=72,files.example,download
+2026-10-05 12:05:00,usr_dana,WS-03,https://news.example/article,news.example,visit
+2026-10-05 12:07:00,,WS-07,https://search.example/?q=demo,search.example,visit
+2026-10-05 12:08:00,usr_alice,WS-01,,,visit
+tomorrow,usr_bob,WS-07,https://mail.example/drafts,mail.example,visit
+2026-10-05 12:10:00,usr_bob,WS-07,https://cdn.example/static/app.js,cdn.example,download
+2026-10-05 12:11:00,usr_dana,WS-03,https://portal.example/settings,portal.example,form_submit

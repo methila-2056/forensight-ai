@@ -9,10 +9,21 @@ from app.models import (
     Case,
     ChainOfCustody,
     Evidence,
+    ForensicEvent,
     MlFinding,
+    ProcessingRun,
     RuleFinding,
 )
-from app.schemas import CaseResponse, CustodyEventResponse, EvidenceResponse
+from app.schemas import (
+    CaseResponse,
+    CustodyEventResponse,
+    EventDetailResponse,
+    EventEvidenceRef,
+    EventResponse,
+    EvidenceResponse,
+    ProcessingRunResponse,
+    RawRecordResponse,
+)
 
 
 def case_response(db: Session, case: Case) -> CaseResponse:
@@ -73,4 +84,79 @@ def custody_response(db: Session, event: ChainOfCustody) -> CustodyEventResponse
         action=event.action,
         actor=event.actor,
         details=event.details,
+    )
+
+
+def processing_run_response(db: Session, run: ProcessingRun) -> ProcessingRunResponse:
+    case = db.get(Case, run.case_id)
+    evidence = db.get(Evidence, run.evidence_id)
+    return ProcessingRunResponse(
+        run_id=run.run_uid,
+        case_id=case.case_id if case else "",
+        evidence_id=evidence.evidence_id if evidence else "",
+        evidence_filename=evidence.original_filename if evidence else "",
+        parser=run.parser,
+        status=run.status,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        records_received=run.records_received,
+        records_parsed=run.records_parsed,
+        records_normalized=run.records_normalized,
+        records_rejected=run.records_rejected,
+        duplicates_detected=run.duplicates_detected,
+        warnings=run.warnings or [],
+        error_code=run.error_code,
+        error=run.error,
+    )
+
+
+def event_response(db: Session, event: ForensicEvent) -> EventResponse:
+    case = db.get(Case, event.case_id)
+    evidence = event.evidence or db.get(Evidence, event.evidence_id)
+    raw_record = event.raw_record
+    duplicate = (event.extra or {}).get("duplicate") or {}
+    return EventResponse(
+        event_id=event.event_uid,
+        case_id=case.case_id if case else "",
+        evidence_id=evidence.evidence_id if evidence else "",
+        timestamp=event.timestamp,
+        tz_note=event.tz_note,
+        source_type=event.source_type,
+        event_type=event.event_type,
+        user=event.user,
+        host=event.host,
+        source_ip=event.source_ip,
+        destination_ip=event.destination_ip,
+        process=event.process,
+        file_path=event.file_path,
+        action=event.action,
+        severity=event.severity,
+        raw_record_reference=raw_record.row_index if raw_record else None,
+        duplicate=bool(duplicate),
+        duplicate_of=duplicate.get("of"),
+        metadata=event.extra or None,
+    )
+
+
+def event_detail_response(db: Session, event: ForensicEvent) -> EventDetailResponse:
+    base = event_response(db, event)
+    evidence = event.evidence or db.get(Evidence, event.evidence_id)
+    raw_record = event.raw_record
+    return EventDetailResponse(
+        **base.model_dump(),
+        raw_record=RawRecordResponse(
+            row_index=raw_record.row_index,
+            content=raw_record.content,
+            reject_reason=raw_record.reject_reason,
+        )
+        if raw_record
+        else None,
+        evidence=EventEvidenceRef(
+            evidence_id=evidence.evidence_id,
+            original_filename=evidence.original_filename,
+            sha256=evidence.sha256,
+            uploaded_at=evidence.uploaded_at,
+        )
+        if evidence
+        else None,
     )

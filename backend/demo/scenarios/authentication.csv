@@ -1,0 +1,15 @@
+timestamp,user,host,source_ip,action,result
+2026-10-05 08:15:00,usr_alice,WS-01,10.20.30.5,login,success
+2026-10-05 08:16:12,usr_bob,WS-07,10.20.30.6,login,failure
+2026-10-05 08:17:00,usr_alice,WS-01,10.20.30.5,logout,success
+2026-10-05 08:20:00,svc_backup,SRV-FILE01,10.20.30.10,login,success
+2026-10-05 08:21:30,usr_dana,WS-03,10.20.30.7,login,success
+10/05/2026 08:25:00,usr_bob,WS-07,10.20.30.6,login,success
+1791162000,usr_dana,WS-03,10.20.30.7,logout,success
+2026-10-05 08:16:12,usr_bob,WS-07,10.20.30.6,login,failure
+not-a-timestamp,usr_alice,WS-01,10.20.30.5,login,success
+,usr_dana,WS-03,10.20.30.7,login,success
+2026-10-05 08:30:00,svc_backup,SRV-FILE01,10.20.30.10,logout,success
+2026-10-05 08:31:00,usr_charlie
+2026-10-05 08:32:00,,WS-07,10.20.30.6,login,failure
+2026-10-05 08:33:00,usr_bob,WS-07,10.20.30.6,password_change,success

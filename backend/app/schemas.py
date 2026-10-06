@@ -1,4 +1,5 @@
-"""Pydantic request/response schemas (Phase 1: cases, evidence, integrity, custody)."""
+"""Pydantic request/response schemas (Phase 1: cases, evidence, integrity, custody;
+Phase 2: processing, events)."""
 
 from __future__ import annotations
 
@@ -12,7 +13,9 @@ from app.models import (
     CustodyAction,
     EvidenceStatus,
     EvidenceType,
+    ProcessingStatus,
     SeverityLevel,
+    SourceType,
 )
 from app.terminology import HASH_ALGORITHM
 
@@ -126,6 +129,117 @@ class CustodyEventResponse(BaseModel):
     action: CustodyAction
     actor: str
     details: Optional[dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# Processing (Phase 2)
+# ---------------------------------------------------------------------------
+
+class ProcessRequest(BaseModel):
+    evidence_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Process only these evidence items; omit to process all evidence of the case",
+        examples=[["EV-0001"]],
+    )
+    actor: str = Field(default="system", max_length=127)
+
+
+class ProcessingRunResponse(BaseModel):
+    run_id: str
+    case_id: str
+    evidence_id: str
+    evidence_filename: str
+    parser: str
+    status: ProcessingStatus
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    records_received: int
+    records_parsed: int
+    records_normalized: int
+    records_rejected: int
+    duplicates_detected: int
+    warnings: list[str] = []
+    error_code: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ProcessCaseResponse(BaseModel):
+    case_id: str
+    runs: list[ProcessingRunResponse]
+
+
+class EvidenceProcessingResponse(BaseModel):
+    evidence_id: str
+    original_filename: str
+    sha256: str
+    status: EvidenceStatus
+    record_count: Optional[int] = None
+    parse_ok: Optional[int] = None
+    parse_rejected: Optional[int] = None
+    runs: list[ProcessingRunResponse]
+
+
+class RejectedRecordResponse(BaseModel):
+    evidence_id: str
+    row_index: int
+    parser: str
+    status: str = "REJECTED"
+    reason: Optional[str] = None
+    original_record: str
+    processed_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Normalized events (Phase 2)
+# ---------------------------------------------------------------------------
+
+class EventResponse(BaseModel):
+    event_id: str
+    case_id: str
+    evidence_id: str
+    timestamp: Optional[datetime] = None
+    tz_note: Optional[str] = None
+    source_type: SourceType
+    event_type: str
+    user: Optional[str] = None
+    host: Optional[str] = None
+    source_ip: Optional[str] = None
+    destination_ip: Optional[str] = None
+    process: Optional[str] = None
+    file_path: Optional[str] = None
+    action: Optional[str] = None
+    severity: Optional[SeverityLevel] = None
+    raw_record_reference: Optional[int] = Field(
+        default=None, description="Row number in the original evidence file"
+    )
+    duplicate: bool = False
+    duplicate_of: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
+
+
+class EventListResponse(BaseModel):
+    events: list[EventResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class RawRecordResponse(BaseModel):
+    row_index: int
+    content: str
+    reject_reason: Optional[str] = None
+
+
+class EventEvidenceRef(BaseModel):
+    evidence_id: str
+    original_filename: str
+    sha256: str
+    uploaded_at: datetime
+
+
+class EventDetailResponse(EventResponse):
+    raw_record: Optional[RawRecordResponse] = None
+    evidence: Optional[EventEvidenceRef] = None
 
 
 # ---------------------------------------------------------------------------

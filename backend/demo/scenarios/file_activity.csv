@@ -1,0 +1,13 @@
+timestamp,user,host,file_path,action,result
+2026-10-05 09:00:00,usr_alice,WS-01,C:\Users\usr_alice\Documents\quarterly_report.xlsx,open,success
+2026-10-05 09:02:00,usr_alice,WS-01,C:\Users\usr_alice\Documents\quarterly_report.xlsx,write,success
+2026-10-05 09:05:00,usr_bob,WS-07,/home/usr_bob/notes.txt,delete,success
+2026-10-05 09:07:15,usr_bob,WS-07,/home/usr_bob/notes.txt,rename,success
+2026-10-05 09:10:00,svc_backup,SRV-FILE01,D:\backups\finance_2026-10-05.bak,copy,success
+2026-10-05 09:10:00,svc_backup,SRV-FILE01,D:\backups\finance_2026-10-05.bak,copy,success
+2026/10/05 09:15:00,usr_dana,WS-03,/var/log/app/config.yaml,open,success
+2026-10-05 09:16:00,usr_dana,WS-03,,delete,success
+2026-10-05 09:18:00,usr_alice,WS-01,C:\Users\usr_alice\Desktop\temp.lnk,delete,failure
+bad-date,usr_bob,WS-07,/home/usr_bob/notes.txt,open,success
+2026-10-05 09:20:00,usr_charlie,WS-05,extra,columns,here,now
+2026-10-05 09:22:00,usr_dana,WS-03,/etc/ssh/sshd_config,write,success

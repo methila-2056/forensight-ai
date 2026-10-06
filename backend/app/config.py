@@ -55,6 +55,11 @@ ALLOWED_EXTENSIONS = frozenset(
 ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.72"))
 RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
 
+# Parser resource limit (Phase 2): a single processing run reads at most this
+# many records; the remainder is reported as a warning and the run is marked
+# Partial instead of silently continuing or claiming completion.
+MAX_RECORDS_PER_RUN = int(os.getenv("MAX_RECORDS_PER_RUN", "200000"))
+
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv(

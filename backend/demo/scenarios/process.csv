@@ -1,0 +1,13 @@
+timestamp,host,user,process,action,pid,parent_process,command_line
+2026-10-05 10:00:00,WS-07,usr_bob,powershell.exe,start,4120,explorer.exe,"powershell -nop -w hidden"
+2026-10-05 10:00:05,WS-07,usr_bob,whoami.exe,start,4121,powershell.exe,whoami /all
+2026-10-05 10:01:00,WS-01,usr_alice,chrome.exe,start,2210,explorer.exe,chrome.exe --type=renderer
+2026-10-05 10:02:00,WS-01,usr_alice,chrome.exe,exit,2210,explorer.exe,
+2026-10-05 10:05:00,SRV-WEB01,svc_backup,rsync,start,980,systemd,rsync --daemon --no-detach
+2026-10-05 10:05:00,SRV-WEB01,svc_backup,rsync,start,980,systemd,rsync --daemon --no-detach
+2026-10-05 10:07:00,WS-07,usr_bob,cmd.exe,start,4200,powershell.exe,cmd.exe /c "net user"
+2026-10-05 10:08:00,WS-07,usr_bob,schtasks.exe,start,4300,cmd.exe,"schtasks /create /tn updater /tr calc.exe"
+2026-10-05 10:09:00,WS-07,usr_bob
+unknown-format-ts,WS-07,usr_bob,bad.exe,start,4400,explorer.exe,bad.exe
+2026-10-05 10:11:00,WS-03,usr_dana,explorer.exe,start,1500,System,explorer.exe
+1791163800,WS-03,usr_dana,notepad.exe,start,1600,explorer.exe,notepad.exe

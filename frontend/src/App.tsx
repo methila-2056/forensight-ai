@@ -3,6 +3,7 @@ import AppShell from "./components/AppShell";
 import CaseDetailPage from "./pages/CaseDetailPage";
 import CaseListPage from "./pages/CaseListPage";
 import CreateCasePage from "./pages/CreateCasePage";
+import EventsPage from "./pages/EventsPage";
 import Landing from "./pages/Landing";
 
 export default function App(): JSX.Element {
@@ -13,6 +14,7 @@ export default function App(): JSX.Element {
           <Route path="/" element={<Landing />} />
           <Route path="/cases" element={<CaseListPage />} />
           <Route path="/cases/new" element={<CreateCasePage />} />
+          <Route path="/cases/:caseId/events" element={<EventsPage />} />
           <Route path="/cases/:caseId" element={<CaseDetailPage />} />
         </Route>
       </Routes>

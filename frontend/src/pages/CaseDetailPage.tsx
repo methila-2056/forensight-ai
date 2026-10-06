@@ -10,7 +10,8 @@ import {
   uploadEvidenceFile,
   verifyEvidence,
 } from "../api/evidence";
-import { CaseStatusBadge, EvidenceStatusBadge, IntegrityResultBadge, SeverityBadge } from "../components/Badges";
+import { listProcessingRuns, processCase } from "../api/processing";
+import { CaseStatusBadge, EvidenceStatusBadge, IntegrityResultBadge, ProcessingStatusBadge, SeverityBadge } from "../components/Badges";
 import CustodyLog from "../components/CustodyLog";
 import ErrorBox from "../components/ErrorBox";
 import HashBadge from "../components/HashBadge";
@@ -28,6 +29,7 @@ import type {
   EvidenceType,
   IntegrityTestResult,
   IntegrityVerifyResult,
+  ProcessingRun,
   Severity,
   UploadPolicy,
 } from "../types/models";
@@ -41,6 +43,7 @@ export default function CaseDetailPage(): JSX.Element {
 
   const [caseData, setCaseData] = useState<CaseSummary | null>(null);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
+  const [runs, setRuns] = useState<ProcessingRun[]>([]);
   const [caseCustody, setCaseCustody] = useState<CustodyEvent[]>([]);
   const [policy, setPolicy] = useState<UploadPolicy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,13 +66,23 @@ export default function CaseDetailPage(): JSX.Element {
   const [metaError, setMetaError] = useState<string | null>(null);
   const [savingMeta, setSavingMeta] = useState(false);
 
+  const [processingState, setProcessingState] = useState<"idle" | "running">("idle");
+  const [processError, setProcessError] = useState<string | null>(null);
+
   const loadAll = useCallback(() => {
-    Promise.all([getCase(caseId), listEvidence(caseId), getCaseCustody(caseId), getUploadPolicy()])
-      .then(([loadedCase, evidenceList, custody, loadedPolicy]) => {
+    Promise.all([
+      getCase(caseId),
+      listEvidence(caseId),
+      getCaseCustody(caseId),
+      getUploadPolicy(),
+      listProcessingRuns(caseId),
+    ])
+      .then(([loadedCase, evidenceList, custody, loadedPolicy, processingRuns]) => {
         setCaseData(loadedCase);
         setEvidence(evidenceList);
         setCaseCustody(custody);
         setPolicy(loadedPolicy);
+        setRuns(processingRuns);
         setStatusDraft(loadedCase.status);
         setSeverityDraft(loadedCase.severity);
         setError(null);
@@ -156,6 +169,26 @@ export default function CaseDetailPage(): JSX.Element {
       setSavingMeta(false);
     }
   };
+
+  const runProcessing = async (): Promise<void> => {
+    setProcessingState("running");
+    setProcessError(null);
+    try {
+      await processCase(caseId, { actor: "ui" });
+      await loadAll();
+      setSelectedId(null);
+    } catch (err: unknown) {
+      setProcessError(
+        err instanceof ApiError ? err.message : "Evidence processing failed.",
+      );
+      await loadAll();
+    } finally {
+      setProcessingState("idle");
+    }
+  };
+
+  const latestRunFor = (evidenceId: string): ProcessingRun | null =>
+    runs.find((run) => run.evidence_id === evidenceId) ?? null;
 
   const selected = evidence.find((item) => item.evidence_id === selectedId) ?? null;
 
@@ -326,34 +359,139 @@ export default function CaseDetailPage(): JSX.Element {
                   <th className="py-2 pr-4">Type</th>
                   <th className="py-2 pr-4">Size</th>
                   <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Rows / OK / Reject</th>
                   <th className="py-2">Uploaded</th>
                 </tr>
               </thead>
               <tbody>
-                {evidence.map((item) => (
-                  <tr
-                    key={item.evidence_id}
-                    onClick={() => selectEvidence(item.evidence_id)}
-                    className={`cursor-pointer border-b border-slate-900 hover:bg-slate-900/70 ${
-                      selectedId === item.evidence_id ? "bg-slate-900" : ""
-                    }`}
-                  >
-                    <td className="py-3 pr-4 font-mono text-xs text-cyan-400">{item.evidence_id}</td>
-                    <td className="py-3 pr-4 text-white">{item.original_filename}</td>
-                    <td className="py-3 pr-4 font-mono text-[11px] uppercase text-slate-400">
-                      {EVIDENCE_TYPE_OPTIONS.find((option) => option.value === item.evidence_type)?.label ??
-                        item.evidence_type}
-                    </td>
-                    <td className="py-3 pr-4 font-mono text-slate-400">{formatBytes(item.file_size)}</td>
+                {evidence.map((item) => {
+                  const latest = latestRunFor(item.evidence_id);
+                  return (
+                    <tr
+                      key={item.evidence_id}
+                      onClick={() => selectEvidence(item.evidence_id)}
+                      className={`cursor-pointer border-b border-slate-900 hover:bg-slate-900/70 ${
+                        selectedId === item.evidence_id ? "bg-slate-900" : ""
+                      }`}
+                    >
+                      <td className="py-3 pr-4 font-mono text-xs text-cyan-400">{item.evidence_id}</td>
+                      <td className="py-3 pr-4 text-white">{item.original_filename}</td>
+                      <td className="py-3 pr-4 font-mono text-[11px] uppercase text-slate-400">
+                        {EVIDENCE_TYPE_OPTIONS.find((option) => option.value === item.evidence_type)?.label ??
+                          item.evidence_type}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-slate-400">{formatBytes(item.file_size)}</td>
+                      <td className="py-3 pr-4">
+                        <EvidenceStatusBadge status={item.status} />
+                        {latest && <div className="mt-1"><ProcessingStatusBadge status={latest.status} /></div>}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-400">
+                        {item.record_count != null
+                          ? `${item.record_count} / ${item.parse_ok ?? 0} / ${item.parse_rejected ?? 0}`
+                          : "—"}
+                      </td>
+                      <td className="py-3 font-mono text-xs text-slate-500">{formatDateTime(item.uploaded_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="border border-slate-800 bg-slate-900/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">
+              Analysis — parse &amp; normalize
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Parses selected evidence with a safe CSV/JSON reader, normalizes rows into the
+              common forensic event schema, and records a processing run. Malformed rows are
+              retained and explained. Raw evidence bytes are never modified.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/cases/${caseId}/events`}
+              className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+            >
+              Open events →
+            </Link>
+            <button
+              type="button"
+              onClick={() => void runProcessing()}
+              disabled={evidence.length === 0 || processingState === "running"}
+              className="border border-emerald-700 bg-emerald-950/50 px-4 py-2 font-mono text-xs uppercase tracking-widest text-emerald-300 hover:bg-emerald-900/50 disabled:opacity-50"
+            >
+              {processingState === "running" ? "Processing…" : "Process case"}
+            </button>
+          </div>
+        </div>
+
+        {processError && (
+          <div className="mt-4">
+            <ErrorBox message={processError} />
+          </div>
+        )}
+
+        {runs.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  <th className="py-2 pr-4">Run</th>
+                  <th className="py-2 pr-4">Evidence</th>
+                  <th className="py-2 pr-4">Parser</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Received</th>
+                  <th className="py-2 pr-4">Normalized</th>
+                  <th className="py-2 pr-4">Rejected</th>
+                  <th className="py-2 pr-4">Duplicates</th>
+                  <th className="py-2">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map((run) => (
+                  <tr key={run.run_id} className="border-b border-slate-900 align-top">
+                    <td className="py-3 pr-4 font-mono text-xs text-cyan-400">{run.run_id}</td>
                     <td className="py-3 pr-4">
-                      <EvidenceStatusBadge status={item.status} />
+                      <span className="font-mono text-[11px] text-slate-400">{run.evidence_id}</span>{" "}
+                      <span className="text-slate-300">{run.evidence_filename}</span>
                     </td>
-                    <td className="py-3 font-mono text-xs text-slate-500">{formatDateTime(item.uploaded_at)}</td>
+                    <td className="py-3 pr-4 font-mono text-[11px] text-slate-400">{run.parser || "—"}</td>
+                    <td className="py-3 pr-4">
+                      <ProcessingStatusBadge status={run.status} />
+                    </td>
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-300">{run.records_received}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-300">{run.records_normalized}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-amber-400">{run.records_rejected}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-300">{run.duplicates_detected}</td>
+                    <td className="py-3">
+                      {run.error ? (
+                        <p className="font-mono text-[11px] text-red-400">{run.error}</p>
+                      ) : (
+                        (run.warnings ?? []).map((warning) => (
+                          <p key={warning} className="font-mono text-[11px] text-amber-400/90">
+                            {warning}
+                          </p>
+                        ))
+                      )}
+                      <p className="mt-1 font-mono text-[10px] text-slate-600">
+                        {run.started_at ? formatDateTime(run.started_at) : "—"}
+                        {run.completed_at ? ` → ${formatDateTime(run.completed_at)}` : ""}
+                      </p>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
+            No processing runs yet — upload evidence and run analysis.
+          </p>
         )}
       </section>
 

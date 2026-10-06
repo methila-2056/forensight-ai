@@ -1,4 +1,4 @@
-import type { CaseStatus, EvidenceStatus, Severity } from "../types/models";
+import type { CaseStatus, EvidenceStatus, ProcessingStatus, Severity, SourceType } from "../types/models";
 
 const SEVERITY_TONES: Record<Severity, string> = {
   Low: "border-slate-600 text-slate-400",
@@ -63,6 +63,34 @@ export function IntegrityResultBadge({ result }: { result: string }): JSX.Elemen
       }`}
     >
       {result}
+    </span>
+  );
+}
+
+const PROCESSING_TONES: Record<string, string> = {
+  Pending: "border-slate-600 text-slate-400",
+  Processing: "border-sky-700 text-sky-400",
+  Completed: "border-emerald-700 text-emerald-400",
+  Partial: "border-amber-700 text-amber-400",
+  Failed: "border-red-700 text-red-400",
+};
+
+export function ProcessingStatusBadge({ status }: { status: ProcessingStatus | string }): JSX.Element {
+  return (
+    <span
+      className={`inline-block border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+        PROCESSING_TONES[status] ?? "border-slate-700 text-slate-400"
+      }`}
+    >
+      {status}
+    </span>
+  );
+}
+
+export function SourceTypeBadge({ sourceType }: { sourceType: SourceType | string }): JSX.Element {
+  return (
+    <span className="inline-block border border-slate-700 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+      {sourceType}
     </span>
   );
 }

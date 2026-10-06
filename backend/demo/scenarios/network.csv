@@ -1,0 +1,11 @@
+timestamp,host,process,source_ip,destination_ip,destination_port,protocol,action
+2026-10-05 11:00:00,WS-07,powershell.exe,10.20.30.6,198.51.100.20,443,tcp,connect
+2026-10-05 11:00:00,WS-07,powershell.exe,10.20.30.6,198.51.100.20,443,tcp,connect
+2026-10-05 11:02:00,WS-01,chrome.exe,10.20.30.5,203.0.113.10,443,tcp,connect
+2026-10-05 11:05:00,SRV-WEB01,nginx,10.20.30.20,192.0.2.50,80,tcp,accept
+2026-10-05 11:07:00,WS-03,svchost.exe,10.20.30.7,10.20.30.10,445,tcp,connect
+2026-10-05 11:08:00,WS-07,powershell.exe,10.20.30.6,10.20.30.99,5985,tcp,connect
+bad-timestamp,WS-07,bad.exe,10.20.30.6,198.51.100.20,80,tcp,connect
+2026-10-05 11:10:00,WS-03,,10.20.30.7,203.0.113.44,53,udp,query
+2026-10-05 11:11:00,WS-01
+10/05/2026 11:12:00,WS-01,chrome.exe,10.20.30.5,192.0.2.99,8080,tcp,connect

@@ -5,7 +5,7 @@ SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital F
 
 > FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, and maintains traceability from findings back to source evidence.
 
-**Current status:** Phase 1 — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, and chain of custody implemented (backend + UI). Parsing, analysis, correlation, timeline, assistant, and reporting follow the plan in [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phase 2 — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema) and a **processing log** implemented (backend + UI). Analysis (Phase 3: rules, ML, correlation, timeline, assistant, reporting) follows the plan in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -60,20 +60,21 @@ forensight-ai/
 │   │   ├── main.py            # FastAPI app, OpenAPI, CORS, lifespan
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
-│   │   ├── routers/           # health, cases, evidence (Phase 1)
-│   │   ├── services/          # case, evidence, integrity, custody (Phase 1)
+│   │   ├── routers/           # health, cases, evidence, processing, events (Phases 1–2)
+│   │   ├── services/          # case, evidence, integrity, custody, processing (Phases 1–2)
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
 │   │   ├── security/uploads.py   # Phase 1: upload validation
-│   │   └── engines/           # parsing, rules, ml, correlation, timeline,
-│   │                          # graph, assistant, report (Phase 2+)
-│   ├── tests/                 # pytest suite (terminology, raw store, API, models)
+│   │   └── engines/           # parsing (Phase 2 implemented); rules, ml,
+│   │                          # correlation, timeline, graph, assistant, report (Phase 3+)
+│   ├── tests/                 # pytest suite (terminology, raw store, API, models,
+│   │                          # timestamps, parsers, processing, demo datasets)
 │   ├── data/                  # SQLite db (git-ignored)
 │   ├── evidence_store/        # raw evidence, write-once (git-ignored)
 │   ├── ml_artifacts/          # trained model artifacts (git-ignored)
-│   └── demo/scenarios/        # synthetic demo datasets (Phase 2)
+│   └── demo/scenarios/        # 6 synthetic demo datasets + README (Phase 2)
 └── frontend/
     └── src/                   # React + TypeScript + Vite + Tailwind
-        ├── api/ types/ state/ components/ pages/
+        ├── api/ types/ state/ components/ pages/   # incl. Events page + process UI
 ```
 
 ## Setup
@@ -99,7 +100,7 @@ npm run build                      # type-check + production build
 
 ### Configuration
 
-Copy `.env.example` to `.env` at the repository root and adjust if needed. Defaults: SQLite at `backend/data/foresight.db`, raw evidence root `backend/evidence_store/`, upload limit 25 MB, allowed extensions `csv,json,txt,log,zip`, `ANOMALY_THRESHOLD=0.72`, `RANDOM_STATE=42`.
+Copy `.env.example` to `.env` at the repository root and adjust if needed. Defaults: SQLite at `backend/data/foresight.db`, raw evidence root `backend/evidence_store/`, upload limit 25 MB, allowed extensions `csv,json,txt,log,zip`, `ANOMALY_THRESHOLD=0.72`, `RANDOM_STATE=42`, `MAX_RECORDS_PER_RUN=200000`.
 
 ## Tests
 
@@ -111,7 +112,7 @@ python -m pytest tests/test_terminology.py -v
 
 The suite includes a terminology guard: banned phrases may not appear in the terminology constants, `README.md`, `ARCHITECTURE.md`, or `ATTRIBUTION.md`.
 
-## API (Phase 0 + Phase 1)
+## API (Phase 1 + Phase 2)
 
 | Method | Path | Description |
 |---|---|---|
@@ -132,6 +133,17 @@ The suite includes a terminology guard: banned phrases may not appear in the ter
 | GET | `/api/evidence/{evidence_id}/custody` | Evidence chain of custody |
 | GET | `/api/evidence/{evidence_id}/integrity-history` | Recorded verification results |
 | GET | `/api/policy` | Upload policy (size cap, allowed extensions) |
+
+Phase 2 — parsing, normalization, processing log, events:
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/process` | Process selected (or all) evidence — parse, normalize, record runs |
+| GET | `/api/cases/{case_id}/processing-runs` | Processing run history (newest first) |
+| GET | `/api/cases/{case_id}/events` | Normalized events with filters (source, type, severity, user, host, time range, evidence) |
+| GET | `/api/cases/{case_id}/events/{event_id}` | Event detail: raw record + evidence SHA-256 (traceability) |
+| GET | `/api/evidence/{evidence_id}/processing` | Runs + parse counts for one evidence item |
+| GET | `/api/evidence/{evidence_id}/rejected-records` | Retained malformed/rejected records with reasons |
 
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
 
