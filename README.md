@@ -5,7 +5,7 @@ SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital F
 
 > FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, and maintains traceability from findings back to source evidence.
 
-**Current status:** Phase 2 — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema) and a **processing log** implemented (backend + UI). Analysis (Phase 3: rules, ML, correlation, timeline, assistant, reporting) follows the plan in [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phases 0–4 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), and **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI) implemented (backend + UI). The Phase 4.5 gate (fresh-database end-to-end run over every API route, raw-hash immutability, traceability, repeatability, error envelopes, append-only history, DB integrity, demo scenarios, terminology harvest) passes with no open issues; re-processing evidence whose events are already referenced by correlation/finding history now keeps those rows and records an explanatory warning instead of failing. Next: Phase 5+ (dashboard, report, notes, assistant) — per [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -38,7 +38,7 @@ Finding → Reason → Forensic Event → Raw Record → Evidence File → Recor
 
 The chain is visible in the UI, in assistant answers, and in the generated report. This is the project's central claim: **evidence-traceable AI-assisted forensic investigation**.
 
-## Scope (per Architecture v1.1)
+## Scope (per Architecture v1.6)
 
 **MUST-HAVE CORE** — case management · evidence upload · SHA-256 integrity verification · evidence metadata · parsing · normalization · rule engine · ML anomaly detection · multi-source correlation · timeline reconstruction · evidence traceability · basic dashboard · demo scenario.
 
@@ -60,21 +60,21 @@ forensight-ai/
 │   │   ├── main.py            # FastAPI app, OpenAPI, CORS, lifespan
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
-│   │   ├── routers/           # health, cases, evidence, processing, events (Phases 1–2)
-│   │   ├── services/          # case, evidence, integrity, custody, processing (Phases 1–2)
+│   │   ├── routers/           # health, cases, evidence, processing, events, analysis (Phases 1–3)
+│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis (Phases 1–3)
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
 │   │   ├── security/uploads.py   # Phase 1: upload validation
-│   │   └── engines/           # parsing (Phase 2 implemented); rules, ml,
-│   │                          # correlation, timeline, graph, assistant, report (Phase 3+)
+│   │   └── engines/           # parsing, rules, ml (Phases 2–3 implemented);
+│   │                          # assistant, report, notes, demo (Phase 5+)
 │   ├── tests/                 # pytest suite (terminology, raw store, API, models,
-│   │                          # timestamps, parsers, processing, demo datasets)
+│   │                          # timestamps, parsers, processing, analysis, demo datasets)
 │   ├── data/                  # SQLite db (git-ignored)
 │   ├── evidence_store/        # raw evidence, write-once (git-ignored)
 │   ├── ml_artifacts/          # trained model artifacts (git-ignored)
 │   └── demo/scenarios/        # 6 synthetic demo datasets + README (Phase 2)
 └── frontend/
     └── src/                   # React + TypeScript + Vite + Tailwind
-        ├── api/ types/ state/ components/ pages/   # incl. Events page + process UI
+        ├── api/ types/ state/ components/ pages/   # incl. Events, Findings, Finding detail
 ```
 
 ## Setup
@@ -100,7 +100,7 @@ npm run build                      # type-check + production build
 
 ### Configuration
 
-Copy `.env.example` to `.env` at the repository root and adjust if needed. Defaults: SQLite at `backend/data/foresight.db`, raw evidence root `backend/evidence_store/`, upload limit 25 MB, allowed extensions `csv,json,txt,log,zip`, `ANOMALY_THRESHOLD=0.72`, `RANDOM_STATE=42`, `MAX_RECORDS_PER_RUN=200000`.
+Copy `.env.example` to `.env` at the repository root and adjust if needed. Defaults: SQLite at `backend/data/foresight.db`, raw evidence root `backend/evidence_store/`, upload limit 25 MB, allowed extensions `csv,json,txt,log,zip`, `ANOMALY_THRESHOLD=0.72`, `RANDOM_STATE=42`, `MAX_RECORDS_PER_RUN=200000`, `ANALYSIS_WINDOW_MINUTES=5`, `ML_Z_SIGMAS=2.0`, `ML_MIN_WINDOWS=8`, `RULE_MAX_FINDINGS_PER_RULE=10`, plus per-rule thresholds (`RULE_AUTH001_*`, `RULE_FILE001_*`, …) documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Tests
 
@@ -112,7 +112,7 @@ python -m pytest tests/test_terminology.py -v
 
 The suite includes a terminology guard: banned phrases may not appear in the terminology constants, `README.md`, `ARCHITECTURE.md`, or `ATTRIBUTION.md`.
 
-## API (Phase 1 + Phase 2)
+## API (Phases 1–3)
 
 | Method | Path | Description |
 |---|---|---|
@@ -145,6 +145,26 @@ Phase 2 — parsing, normalization, processing log, events:
 | GET | `/api/evidence/{evidence_id}/processing` | Runs + parse counts for one evidence item |
 | GET | `/api/evidence/{evidence_id}/rejected-records` | Retained malformed/rejected records with reasons |
 
+Phase 3 — automated analysis and findings:
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/analyze` | Run rules + Strategy A anomaly detection + fusion (append-only) |
+| GET | `/api/cases/{case_id}/analysis-runs` | Analysis run history with methodology stats |
+| GET | `/api/cases/{case_id}/findings` | Findings with filters (kind, severity, status, run) |
+| GET | `/api/cases/{case_id}/findings/{finding_id}` | Finding detail: reasons, components, suspicion band, notes |
+| GET | `/api/cases/{case_id}/findings/{finding_id}/trace` | Evidence ladder: events → raw records → evidence SHA-256 |
+| PATCH | `/api/cases/{case_id}/findings/{finding_id}` | Review workflow (New → Under Review → Confirmed/Dismissed) |
+| GET | `/api/cases/{case_id}/ml-metrics` | ML methodology stats + configuration |
+| POST | `/api/cases/{case_id}/correlate` | Run cross-source correlation (append-only) |
+| GET | `/api/cases/{case_id}/correlation-runs` | Correlation run history with stats |
+| GET | `/api/cases/{case_id}/correlations` | Reason-tagged links (filters: type, run) |
+| GET | `/api/correlations/{correlation_id}` | Link detail: reason, shared entities, both events + evidence |
+| GET | `/api/cases/{case_id}/groups` | Activity groups (filters: kind, run) |
+| GET | `/api/groups/{group_id}` | Group detail with member events |
+| GET | `/api/cases/{case_id}/timeline` | Reconstructed Investigation Timeline |
+| GET | `/api/cases/{case_id}/graph` | Evidence graph (capped, table fallback) |
+
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
 
 ## Roadmap
@@ -154,10 +174,10 @@ Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.
 | 0 | Scaffolding, data model, terminology guard, write-once store | Core |
 | 1 | Case management, evidence upload, integrity verification | Core |
 | 2 | Parsing + normalization + processing log | Core |
-| 3 | Rule engine + ML anomaly detection + explanations | Core |
-| 4 | Correlation + reconstructed timeline + dashboard | Core |
+| 3 | Rule engine + Strategy A anomaly detection + fusion + findings UI | Core |
+| 4 | Correlation + activity groups + reconstructed timeline + evidence graph + investigation UI | Core |
 | 4.5 | **Core acceptance gate** (end-to-end core pipeline) | Core |
-| 5–7 | Evidence graph, report, notes, assistant | Secondary |
+| 5–7 | Dashboard, report, notes, assistant | Secondary |
 | 8 | One-click demo case + polish | Core polish |
 | 9 | Stretch items only if 0–8 are green | Stretch |
 

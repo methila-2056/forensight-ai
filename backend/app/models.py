@@ -1,10 +1,10 @@
-"""SQLAlchemy models — full schema from Architecture v1.1 §Data Model (Phase 0).
+"""SQLAlchemy models — schema per Architecture v1.4 (Phases 0–4).
 
 Table list:
 cases, evidence, integrity_checks, chain_of_custody, raw_records,
 forensic_events, processing_runs, rule_findings, ml_findings,
-classifier_results, correlations, investigation_runs, investigator_notes,
-model_metrics.
+classifier_results, correlations, correlation_runs, investigation_groups,
+investigation_runs, investigator_notes, model_metrics.
 
 Note: the normalized-event payload column is named "metadata" at the SQL level
 and exposed as the attribute ``extra`` to avoid clashing with the SQLAlchemy
@@ -101,12 +101,23 @@ class CustodyAction(str, enum.Enum):
     INTEGRITY_TEST = "Integrity Test"
     PROCESSING_STARTED = "Analysis Started"
     PROCESSING_COMPLETED = "Analysis Completed"
+    ANALYZE_STARTED = "Automated Analysis Started"
+    ANALYZE_COMPLETED = "Automated Analysis Completed"
     INVESTIGATOR_REVIEWED = "Investigator Reviewed"
     REPORT_GENERATED = "Report Generated"
 
 
 class FindingStatus(str, enum.Enum):
-    OPEN = "Open"
+    """Review lifecycle of a finding (Phase 3).
+
+    NEW is the initial state written by the automated analysis. The system
+    never confirms or dismisses a finding on its own — every transition to
+    Confirmed or Dismissed is recorded as an investigator action in the
+    chain of custody.
+    """
+
+    NEW = "New"
+    UNDER_REVIEW = "Under Review"
     CONFIRMED = "Confirmed"
     DISMISSED = "Dismissed"
 
@@ -148,6 +159,39 @@ class ProcessingStatus(str, enum.Enum):
     COMPLETED = "Completed"
     PARTIAL = "Partial"
     FAILED = "Failed"
+
+
+class CorrelationType(str, enum.Enum):
+    """Phase 4 correlation types (Architecture §11).
+
+    Each stored correlation records exactly one type — the first rule in this
+    order whose condition holds for the event pair — while the confidence
+    credits every shared attribute the pair actually has.
+    """
+
+    SAME_HOST = "CORR-001"            # shared host within the window
+    SAME_USER = "CORR-002"            # shared user within the window
+    SAME_SOURCE_IP = "CORR-003"       # shared source IP (auth/network) within the window
+    PROCESS_TO_FILE = "CORR-004"      # process → file activity on the same host
+    PROCESS_TO_NETWORK = "CORR-005"   # process → external network connection on the same host
+
+
+class GroupKind(str, enum.Enum):
+    """Activity-group kinds derived from the dominant source type of members."""
+
+    AUTHENTICATION = "authentication"
+    PROCESS = "process"
+    FILE = "file_activity"
+    NETWORK = "network"
+    CROSS_SOURCE = "cross_source"
+
+
+class TimelineSignificance(str, enum.Enum):
+    """Significance of a timeline entry, derived from Phase 3 findings."""
+
+    NORMAL = "NORMAL"        # context / correlation-only observation
+    NOTABLE = "NOTABLE"      # anomalous window or ML finding
+    SUSPICIOUS = "SUSPICIOUS"  # rule finding or high composite band
 
 
 # ---------------------------------------------------------------------------
@@ -322,8 +366,10 @@ class RuleFinding(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     finding_uid: Mapped[str] = mapped_column(String(48), unique=True, nullable=False, index=True)
     case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("investigation_runs.id"), nullable=True, index=True)
     rule_id: Mapped[str] = mapped_column(String(16), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     severity: Mapped[str] = mapped_column(_enum(SeverityLevel, "severity_level_rule"),
                                           nullable=False, default=SeverityLevel.MEDIUM.value)
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
@@ -331,11 +377,14 @@ class RuleFinding(Base):
     timestamp_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
     reasons: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    composite_suspicion_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     triggered_event_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     evidence_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(_enum(FindingStatus, "finding_status"),
-                                        nullable=False, default=FindingStatus.OPEN.value)
+                                        nullable=False, default=FindingStatus.NEW.value)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
 
 class MlFinding(Base):
@@ -344,17 +393,24 @@ class MlFinding(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     finding_uid: Mapped[str] = mapped_column(String(48), unique=True, nullable=False, index=True)
     case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("investigation_runs.id"), nullable=True, index=True)
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    severity: Mapped[str] = mapped_column(_enum(SeverityLevel, "severity_level_ml"),
+                                          nullable=False, default=SeverityLevel.MEDIUM.value)
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     composite_suspicion_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     explanation: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    feature_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     event_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     evidence_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(_enum(FindingStatus, "finding_status_ml"),
-                                        nullable=False, default=FindingStatus.OPEN.value)
+                                        nullable=False, default=FindingStatus.NEW.value)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
 
 class ClassifierResult(Base):
@@ -371,27 +427,97 @@ class ClassifierResult(Base):
 
 
 # ---------------------------------------------------------------------------
-# Correlation, runs, notes, metrics
+# Correlation (Phase 4), runs, notes, metrics
 # ---------------------------------------------------------------------------
 
+class CorrelationRun(Base):
+    """One append-only correlation run over a case's normalized events.
+
+    Derived data only: raw evidence bytes are never touched. A new run adds
+    correlations; previous runs and their links are never rewritten.
+    """
+
+    __tablename__ = "correlation_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(_enum(RunStatus, "run_status_corr"),
+                                         nullable=False, default=RunStatus.PENDING.value)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    stats: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    case: Mapped["Case"] = relationship("Case")
+
+
 class Correlation(Base):
+    """One reason-tagged link between two normalized events of one run.
+
+    ``reason`` is a human-readable, evidence-backed statement of why the two
+    events are linked; ``confidence`` is a deterministic additive weight
+    (never a probability). Temporal association alone is never a claim of
+    causation (CORRELATION_DISCLAIMER).
+    """
+
     __tablename__ = "correlations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    correlation_uid: Mapped[str] = mapped_column(String(48), unique=True, nullable=False, index=True)
     case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
-    chain_uid: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    event_id: Mapped[int] = mapped_column(ForeignKey("forensic_events.id"), nullable=False)
-    link_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    link_reason: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("correlation_runs.id"), nullable=False, index=True)
+    correlation_type: Mapped[str] = mapped_column(
+        _enum(CorrelationType, "correlation_type"), nullable=False
+    )
+    event_a_id: Mapped[int] = mapped_column(ForeignKey("forensic_events.id"), nullable=False)
+    event_b_id: Mapped[int] = mapped_column(ForeignKey("forensic_events.id"), nullable=False)
+    time_delta_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    shared_entities: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    evidence_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
-    event: Mapped["ForensicEvent"] = relationship("ForensicEvent")
+    event_a: Mapped["ForensicEvent"] = relationship("ForensicEvent", foreign_keys=[event_a_id])
+    event_b: Mapped["ForensicEvent"] = relationship("ForensicEvent", foreign_keys=[event_b_id])
+
+
+class InvestigationGroup(Base):
+    """A deduplicated activity group: connected events of one correlation run.
+
+    Members are real events only — groups never contain inferred or merged
+    entities. ``severity`` reflects the highest Phase 3 finding covering a
+    member event (Low when correlation alone produced the group).
+    """
+
+    __tablename__ = "investigation_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    group_uid: Mapped[str] = mapped_column(String(48), unique=True, nullable=False, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("correlation_runs.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(_enum(GroupKind, "group_kind"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    severity: Mapped[str] = mapped_column(_enum(SeverityLevel, "group_severity"),
+                                          nullable=False, default=SeverityLevel.LOW.value)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    time_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    time_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    member_event_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    correlation_uids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    evidence_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    run: Mapped["CorrelationRun"] = relationship("CorrelationRun")
 
 
 class InvestigationRun(Base):
     __tablename__ = "investigation_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_uid: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
     stage: Mapped[str] = mapped_column(_enum(RunStage, "run_stage"), nullable=False)
     status: Mapped[str] = mapped_column(_enum(RunStatus, "run_status"),

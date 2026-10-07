@@ -51,7 +51,7 @@ ALLOWED_EXTENSIONS = frozenset(
     if ext.strip()
 )
 
-# ML reproducibility (Architecture v1.1): one deterministic threshold strategy.
+# ML reproducibility (Architecture §9): one deterministic threshold strategy.
 ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.72"))
 RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
 
@@ -59,6 +59,69 @@ RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
 # many records; the remainder is reported as a warning and the run is marked
 # Partial instead of silently continuing or claiming completion.
 MAX_RECORDS_PER_RUN = int(os.getenv("MAX_RECORDS_PER_RUN", "200000"))
+
+# ---------------------------------------------------------------------------
+# Automated analysis (Phase 3) — deterministic feature windows + ML strategy A
+# ---------------------------------------------------------------------------
+
+# Normalized events are grouped into fixed-length windows for feature building.
+ANALYSIS_WINDOW_MINUTES = int(os.getenv("ANALYSIS_WINDOW_MINUTES", "5"))
+
+# ML threshold strategy A (documented in ARCHITECTURE.md §Strategy A):
+# * anomaly score = min-max normalized IsolationForest decision_function over
+#   the case's own windows
+# * a window is flagged only when normalized_score >= ANOMALY_THRESHOLD AND the
+#   raw decision score sits below reference_mean - ML_Z_SIGMAS * reference_std
+# * the model abstains (no ML finding) when the case has fewer than
+#   ML_MIN_WINDOWS windows
+# These constants do not affect RANDOM_STATE-seeded rule detection.
+ML_Z_SIGMAS = float(os.getenv("ML_Z_SIGMAS", "2.0"))
+ML_MIN_WINDOWS = int(os.getenv("ML_MIN_WINDOWS", "8"))
+ML_N_ESTIMATORS = int(os.getenv("ML_N_ESTIMATORS", "200"))
+ML_CONTAMINATION = float(os.getenv("ML_CONTAMINATION", "0.1"))
+
+# ---------------------------------------------------------------------------
+# Rule configuration (Phase 3) — env-overridable, snapshot per analysis run
+# ---------------------------------------------------------------------------
+
+RULE_MAX_FINDINGS_PER_RULE = int(os.getenv("RULE_MAX_FINDINGS_PER_RULE", "10"))
+RULE_AUTH001_MIN_FAILURES = int(os.getenv("RULE_AUTH001_MIN_FAILURES", "3"))
+RULE_AUTH001_WINDOW_MINUTES = int(os.getenv("RULE_AUTH001_WINDOW_MINUTES", "15"))
+RULE_AUTH002_MIN_EXTERNAL_LOGINS = int(os.getenv("RULE_AUTH002_MIN_EXTERNAL_LOGINS", "3"))
+RULE_AUTH003_WINDOW_SECONDS = int(os.getenv("RULE_AUTH003_WINDOW_SECONDS", "60"))
+RULE_FILE001_MIN_MODIFICATIONS = int(os.getenv("RULE_FILE001_MIN_MODIFICATIONS", "6"))
+RULE_FILE001_WINDOW_MINUTES = int(os.getenv("RULE_FILE001_WINDOW_MINUTES", "15"))
+RULE_FILE001_HIGH_MIN = int(os.getenv("RULE_FILE001_HIGH_MIN", "15"))
+RULE_FILE002_MIN_RENAMES = int(os.getenv("RULE_FILE002_MIN_RENAMES", "3"))
+RULE_FILE002_WINDOW_MINUTES = int(os.getenv("RULE_FILE002_WINDOW_MINUTES", "10"))
+RULE_NET001_MIN_CONNECTIONS = int(os.getenv("RULE_NET001_MIN_CONNECTIONS", "2"))
+RULE_NET001_WINDOW_MINUTES = int(os.getenv("RULE_NET001_WINDOW_MINUTES", "15"))
+
+# ---------------------------------------------------------------------------
+# Cross-source correlation, timeline, graph (Phase 4)
+# ---------------------------------------------------------------------------
+
+# Two events are considered for correlation when they are at most this many
+# seconds apart (Architecture §11). Timestamps must be real, recorded
+# values — events without a timestamp are never correlated.
+CORRELATION_WINDOW_SECONDS = int(os.getenv("CORRELATION_WINDOW_SECONDS", "300"))
+
+# Deterministic additive confidence weights (sum to 1.0; never a probability).
+CORRELATION_WEIGHT_SAME_HOST = float(os.getenv("CORRELATION_WEIGHT_SAME_HOST", "0.30"))
+CORRELATION_WEIGHT_SAME_USER = float(os.getenv("CORRELATION_WEIGHT_SAME_USER", "0.30"))
+CORRELATION_WEIGHT_TIME_WINDOW = float(os.getenv("CORRELATION_WEIGHT_TIME_WINDOW", "0.25"))
+CORRELATION_WEIGHT_SAME_SOURCE_IP = float(os.getenv("CORRELATION_WEIGHT_SAME_SOURCE_IP", "0.15"))
+
+# Reconstructed timeline: events within this many minutes of a flagged event
+# are included as context (significance NORMAL).
+TIMELINE_CONTEXT_MINUTES = int(os.getenv("TIMELINE_CONTEXT_MINUTES", "2"))
+# Safety cap on rendered timeline entries (the response reports truncation).
+TIMELINE_MAX_ENTRIES = int(os.getenv("TIMELINE_MAX_ENTRIES", "500"))
+
+# Evidence graph payload caps; responses beyond the caps set ``truncated``
+# and include a table fallback for the UI.
+MAX_GRAPH_NODES = int(os.getenv("MAX_GRAPH_NODES", "200"))
+MAX_GRAPH_EDGES = int(os.getenv("MAX_GRAPH_EDGES", "500"))
 
 CORS_ORIGINS = [
     origin.strip()

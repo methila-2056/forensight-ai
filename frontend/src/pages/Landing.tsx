@@ -15,10 +15,10 @@ type HealthState = "checking" | "online" | "offline";
 const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "Stretch"; done: boolean }> = [
   { id: "0", label: "Scaffolding, data model, terminology guard, write-once store", tier: "Core", done: true },
   { id: "1", label: "Case management, evidence upload, integrity verification", tier: "Core", done: true },
-  { id: "2", label: "Parsing + normalization + processing log", tier: "Core", done: false },
-  { id: "3", label: "Rule engine + ML anomaly detection + explanations", tier: "Core", done: false },
-  { id: "4", label: "Correlation + reconstructed timeline + dashboard", tier: "Core", done: false },
-  { id: "5–7", label: "Evidence graph, report, notes, assistant", tier: "Secondary", done: false },
+  { id: "2", label: "Parsing + normalization + processing log", tier: "Core", done: true },
+  { id: "3", label: "Rule engine + ML anomaly detection + explanations", tier: "Core", done: true },
+  { id: "4", label: "Correlation + reconstructed timeline + dashboard", tier: "Core", done: true },
+  { id: "5–7", label: "Evidence graph and finding notes (delivered); report, assistant", tier: "Secondary", done: false },
   { id: "8", label: "One-click demo case + polish", tier: "Core", done: false },
   { id: "9", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
 ];
@@ -56,7 +56,7 @@ export default function Landing(): JSX.Element {
         <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{PRODUCT_CONCEPT}</p>
         <div className="mt-4 flex flex-wrap gap-3 font-mono text-xs">
           <span className={`border border-slate-700 px-2 py-1 ${healthTone}`}>{healthLabel}</span>
-          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASE 1 · CASES &amp; EVIDENCE</span>
+          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–4 · CORE PIPELINE</span>
           <span className="border border-slate-700 px-2 py-1 text-amber-500">{SYNTHETIC_DATA_LABEL}</span>
         </div>
       </header>
@@ -122,11 +122,12 @@ export default function Landing(): JSX.Element {
       <section className="border border-slate-800 bg-slate-900/50 p-5">
         <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Status</h2>
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          Phase 1: create cases, upload evidence into the write-once store, and verify file
-          integrity through SHA-256 hashing with a full chain-of-custody record — including the
-          controlled integrity test on a demonstration copy. Parsing, analysis, correlation,
-          timeline, assistant, and reporting arrive in later phases per the roadmap above. API
-          reference:{" "}
+          Phases 0–4 are implemented: cases and write-once evidence with SHA-256 integrity
+          verification and chain of custody, parsing and normalization with a processing log,
+          rule-based and ML anomaly analysis with explanations, and cross-source correlation
+          with activity groups, reconstructed timeline, and the evidence graph. Report,
+          assistant, and additional evidence formats arrive in later phases per the roadmap
+          above. API reference:{" "}
           <a className="text-cyan-400 underline" href="/docs" target="_blank" rel="noreferrer">
             /docs
           </a>

@@ -1,4 +1,4 @@
-"""Structured API error envelope (Architecture v1.1 §API surface).
+"""Structured API error envelope (Architecture §15 API surface).
 
 All errors are returned as: {"error": {"code": ..., "message": ..., "detail": ...}}
 Internal filesystem paths are never included in error payloads.

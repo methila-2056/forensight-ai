@@ -1,4 +1,4 @@
-"""Upload validation and filename safety (Phase 1, Architecture v1.1 §Security).
+"""Upload validation and filename safety (Phase 1, Architecture §16 Security).
 
 Rules enforced here:
 

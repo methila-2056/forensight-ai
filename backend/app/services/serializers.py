@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -9,18 +12,26 @@ from app.models import (
     Case,
     ChainOfCustody,
     Evidence,
+    FindingStatus,
     ForensicEvent,
+    InvestigationRun,
     MlFinding,
     ProcessingRun,
     RuleFinding,
+    SeverityLevel,
 )
 from app.schemas import (
+    AnalysisRunResponse,
     CaseResponse,
     CustodyEventResponse,
     EventDetailResponse,
     EventEvidenceRef,
     EventResponse,
     EvidenceResponse,
+    FindingDetailResponse,
+    FindingEvidenceResponse,
+    FindingNoteResponse,
+    FindingSummary,
     ProcessingRunResponse,
     RawRecordResponse,
 )
@@ -131,6 +142,8 @@ def event_response(db: Session, event: ForensicEvent) -> EventResponse:
         file_path=event.file_path,
         action=event.action,
         severity=event.severity,
+        anomaly_score=event.anomaly_score,
+        is_anomalous=bool(event.is_anomalous),
         raw_record_reference=raw_record.row_index if raw_record else None,
         duplicate=bool(duplicate),
         duplicate_of=duplicate.get("of"),
@@ -159,4 +172,175 @@ def event_detail_response(db: Session, event: ForensicEvent) -> EventDetailRespo
         )
         if evidence
         else None,
+    )
+
+
+def analysis_run_response(db: Session, run: InvestigationRun) -> AnalysisRunResponse:
+    case = db.get(Case, run.case_id)
+    return AnalysisRunResponse(
+        run_id=run.run_uid,
+        case_id=case.case_id if case else "",
+        stage=run.stage,
+        status=run.status,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        stats=run.stats,
+        error=run.error,
+    )
+
+
+def _run_uid_for(db: Session, run_pk: int | None) -> str | None:
+    if run_pk is None:
+        return None
+    run = db.get(InvestigationRun, run_pk)
+    return run.run_uid if run else None
+
+
+def finding_summary_response(
+    db: Session, case: Case, kind: str, row: RuleFinding | MlFinding
+) -> FindingSummary:
+    if kind == "rule":
+        event_ids = list(row.triggered_event_ids or [])
+        return FindingSummary(
+            finding_id=row.finding_uid,
+            case_id=case.case_id,
+            kind="rule",
+            run_id=_run_uid_for(db, row.run_id),
+            rule_id=row.rule_id,
+            model_name=None,
+            title=row.title,
+            severity=SeverityLevel(row.severity),
+            status=FindingStatus(row.status),
+            confidence=row.confidence,
+            anomaly_score=None,
+            threshold=None,
+            composite_suspicion_score=row.composite_suspicion_score,
+            event_count=len(event_ids),
+            evidence_count=len(row.evidence_ids or []),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+    return FindingSummary(
+        finding_id=row.finding_uid,
+        case_id=case.case_id,
+        kind="ml",
+        run_id=_run_uid_for(db, row.run_id),
+        rule_id=None,
+        model_name=row.model_name,
+        title=row.title or f"ML finding {row.finding_uid}",
+        severity=SeverityLevel(row.severity),
+        status=FindingStatus(row.status),
+        confidence=None,
+        anomaly_score=row.score,
+        threshold=row.threshold,
+        composite_suspicion_score=row.composite_suspicion_score,
+        event_count=len(row.event_ids or []),
+        evidence_count=len(row.evidence_ids or []),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _iso_datetime(value: Any) -> datetime | None:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def finding_detail_response(
+    db: Session,
+    case: Case,
+    kind: str,
+    row: RuleFinding | MlFinding,
+    *,
+    supporting_events: list[ForensicEvent],
+    notes: list[Any] | None = None,
+) -> FindingDetailResponse:
+    if kind == "rule":
+        event_ids = list(row.triggered_event_ids or [])
+        evidence_ids = list(row.evidence_ids or [])
+        anomaly_scores = [
+            event.anomaly_score for event in supporting_events if event.anomaly_score is not None
+        ]
+        anomaly = round(sum(anomaly_scores) / len(anomaly_scores), 6) if anomaly_scores else None
+        start, end = row.timestamp_start, row.timestamp_end
+        explanation: Any = row.explanation
+        reasons: Any = row.reasons
+        feature_snapshot = None
+        feature_version = None
+        model_name = model_version = None
+        rule_id = row.rule_id
+        confidence: float | None = row.confidence
+        score: float | None = None
+        threshold: float | None = None
+    else:
+        event_ids = list(row.event_ids or [])
+        evidence_ids = list(row.evidence_ids or [])
+        anomaly = row.score
+        feature_snapshot = row.feature_snapshot
+        feature_version = (feature_snapshot or {}).get("feature_version")
+        start = _iso_datetime((feature_snapshot or {}).get("window_start"))
+        end = _iso_datetime((feature_snapshot or {}).get("window_end"))
+        explanation = row.explanation
+        reasons = None
+        model_name = row.model_name
+        model_version = row.model_version
+        rule_id = None
+        confidence = None
+        score = row.score
+        threshold = row.threshold
+
+    evidence_rows = []
+    if evidence_ids:
+        evidence_rows = list(
+            db.scalars(select(Evidence).where(Evidence.evidence_id.in_(evidence_ids)))
+        )
+
+    return FindingDetailResponse(
+        finding_id=row.finding_uid,
+        case_id=case.case_id,
+        kind=kind,  # type: ignore[arg-type]
+        run_id=_run_uid_for(db, row.run_id),
+        rule_id=rule_id,
+        model_name=model_name,
+        model_version=model_version if kind == "ml" else None,
+        feature_version=feature_version,
+        title=row.title,
+        severity=SeverityLevel(row.severity),
+        status=FindingStatus(row.status),
+        confidence=confidence,
+        anomaly_score=anomaly,
+        threshold=threshold,
+        composite_suspicion_score=row.composite_suspicion_score,
+        components=row.components,
+        feature_snapshot=feature_snapshot,
+        explanation=explanation,
+        reasons=reasons,
+        timestamp_start=start,
+        timestamp_end=end,
+        event_ids=event_ids,
+        evidence_ids=evidence_ids,
+        supporting_events=[event_response(db, event) for event in supporting_events],
+        evidence=[
+            FindingEvidenceResponse(
+                evidence_id=item.evidence_id,
+                original_filename=item.original_filename,
+                evidence_type=item.evidence_type,
+                file_size=item.file_size,
+                sha256=item.sha256,
+                uploaded_at=item.uploaded_at,
+            )
+            for item in sorted(evidence_rows, key=lambda item: item.evidence_id)
+        ],
+        notes=[
+            FindingNoteResponse(
+                author=note.author, body=note.body, created_at=note.created_at
+            )
+            for note in (notes or [])
+        ],
+        created_at=row.created_at,
+        updated_at=row.updated_at,
     )

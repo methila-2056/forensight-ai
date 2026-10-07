@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { analyzeCase, listAnalysisRuns } from "../api/analysis";
 import { getCase, getCaseCustody, updateCase } from "../api/cases";
 import { ApiError } from "../api/client";
 import {
@@ -11,6 +12,7 @@ import {
   verifyEvidence,
 } from "../api/evidence";
 import { listProcessingRuns, processCase } from "../api/processing";
+import { correlateCase, listCorrelationRuns } from "../api/correlation";
 import { CaseStatusBadge, EvidenceStatusBadge, IntegrityResultBadge, ProcessingStatusBadge, SeverityBadge } from "../components/Badges";
 import CustodyLog from "../components/CustodyLog";
 import ErrorBox from "../components/ErrorBox";
@@ -22,8 +24,10 @@ import {
   SEVERITY_OPTIONS,
 } from "../types/models";
 import type {
+  AnalysisRun,
   CaseStatus,
   CaseSummary,
+  CorrelationRun,
   CustodyEvent,
   EvidenceItem,
   EvidenceType,
@@ -69,6 +73,14 @@ export default function CaseDetailPage(): JSX.Element {
   const [processingState, setProcessingState] = useState<"idle" | "running">("idle");
   const [processError, setProcessError] = useState<string | null>(null);
 
+  const [analysisRuns, setAnalysisRuns] = useState<AnalysisRun[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const [corrRuns, setCorrRuns] = useState<CorrelationRun[]>([]);
+  const [correlating, setCorrelating] = useState(false);
+  const [corrError, setCorrError] = useState<string | null>(null);
+
   const loadAll = useCallback(() => {
     Promise.all([
       getCase(caseId),
@@ -76,13 +88,17 @@ export default function CaseDetailPage(): JSX.Element {
       getCaseCustody(caseId),
       getUploadPolicy(),
       listProcessingRuns(caseId),
+      listAnalysisRuns(caseId),
+      listCorrelationRuns(caseId),
     ])
-      .then(([loadedCase, evidenceList, custody, loadedPolicy, processingRuns]) => {
+      .then(([loadedCase, evidenceList, custody, loadedPolicy, processingRuns, runs, correlationRuns]) => {
         setCaseData(loadedCase);
         setEvidence(evidenceList);
         setCaseCustody(custody);
         setPolicy(loadedPolicy);
         setRuns(processingRuns);
+        setAnalysisRuns(runs);
+        setCorrRuns(correlationRuns);
         setStatusDraft(loadedCase.status);
         setSeverityDraft(loadedCase.severity);
         setError(null);
@@ -187,8 +203,46 @@ export default function CaseDetailPage(): JSX.Element {
     }
   };
 
+  const runAutomatedAnalysis = async (): Promise<void> => {
+    setAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const run = await analyzeCase(caseId, "ui");
+      if (run.status === "Failed") {
+        setAnalysisError(run.error ?? "Automated analysis failed; see the server logs.");
+      }
+      await loadAll();
+    } catch (err: unknown) {
+      setAnalysisError(
+        err instanceof ApiError ? err.message : "Automated analysis failed.",
+      );
+      await loadAll();
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const latestRunFor = (evidenceId: string): ProcessingRun | null =>
     runs.find((run) => run.evidence_id === evidenceId) ?? null;
+
+  const runCorrelation = async (): Promise<void> => {
+    setCorrelating(true);
+    setCorrError(null);
+    try {
+      const run = await correlateCase(caseId, "ui");
+      if (run.status === "Failed") {
+        setCorrError(run.error ?? "Correlation failed; see the server logs.");
+      }
+      await loadAll();
+    } catch (err: unknown) {
+      setCorrError(
+        err instanceof ApiError ? err.message : "Correlation failed.",
+      );
+      await loadAll();
+    } finally {
+      setCorrelating(false);
+    }
+  };
 
   const selected = evidence.find((item) => item.evidence_id === selectedId) ?? null;
 
@@ -404,7 +458,7 @@ export default function CaseDetailPage(): JSX.Element {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">
-              Analysis — parse &amp; normalize
+              Processing — parse &amp; normalize
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               Parses selected evidence with a safe CSV/JSON reader, normalizes rows into the
@@ -490,7 +544,179 @@ export default function CaseDetailPage(): JSX.Element {
           </div>
         ) : (
           <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
-            No processing runs yet — upload evidence and run analysis.
+            No processing runs yet — upload evidence and process it.
+          </p>
+        )}
+      </section>
+
+      <section className="border border-slate-800 bg-slate-900/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">
+              Automated analysis — rules + Strategy A anomaly detection
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Requires normalized events (run processing first). Scores feature windows with a
+              seeded Isolation Forest, evaluates the rule catalog, and fuses both into an
+              uncalibrated Composite Suspicion Score. Findings start as New and require
+              investigator review; re-analysis appends a run instead of deleting history.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/cases/${caseId}/findings`}
+              className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+            >
+              Open findings →
+            </Link>
+            <button
+              type="button"
+              onClick={() => void runAutomatedAnalysis()}
+              disabled={
+                runs.length === 0 || analysisRuns.some((run) => run.status === "Running") || analyzing
+              }
+              className="border border-violet-700 bg-violet-950/50 px-4 py-2 font-mono text-xs uppercase tracking-widest text-violet-300 hover:bg-violet-900/50 disabled:opacity-50"
+              title={runs.length === 0 ? "Process evidence before running analysis." : undefined}
+            >
+              {analyzing ? "Analyzing…" : "Run analysis"}
+            </button>
+          </div>
+        </div>
+
+        {analysisError && (
+          <div className="mt-4">
+            <ErrorBox message={analysisError} />
+          </div>
+        )}
+
+        {analysisRuns.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  <th className="py-2 pr-4">Run</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Finished</th>
+                  <th className="py-2 pr-4">Windows</th>
+                  <th className="py-2 pr-4">Rule findings</th>
+                  <th className="py-2">ML findings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analysisRuns.map((run) => {
+                  const stats = (run.stats ?? {}) as Record<string, unknown>;
+                  return (
+                    <tr key={run.run_id} className="border-b border-slate-900 align-top">
+                      <td className="py-3 pr-4 font-mono text-xs text-cyan-400">{run.run_id}</td>
+                      <td className="py-3 pr-4">
+                        <ProcessingStatusBadge status={run.status} />
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-400">
+                        {run.finished_at ? formatDateTime(run.finished_at) : "—"}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-300">
+                        {typeof stats.windows_total === "number" ? stats.windows_total : "—"}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-300">
+                        {typeof stats.rule_findings === "number" ? stats.rule_findings : "—"}
+                      </td>
+                      <td className="py-3 font-mono text-xs text-slate-300">
+                        {typeof stats.ml_findings === "number" ? stats.ml_findings : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
+            No analysis runs yet — process evidence, then run analysis.
+          </p>
+        )}
+      </section>
+
+      <section className="border border-slate-800 bg-slate-900/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">
+              Cross-source correlation — links, groups, timeline &amp; evidence graph
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Links normalized events that share a host, user, source IP, or typed process
+              relation inside a time window, clusters them into activity groups, and
+              reconstructs the incident timeline and evidence graph for investigation.
+              Re-correlation appends a run; history is never rewritten.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/cases/${caseId}/investigation`}
+              className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+            >
+              Open investigation →
+            </Link>
+            <button
+              type="button"
+              onClick={() => void runCorrelation()}
+              disabled={runs.length === 0 || correlating}
+              className="border border-teal-700 bg-teal-950/50 px-4 py-2 font-mono text-xs uppercase tracking-widest text-teal-300 hover:bg-teal-900/50 disabled:opacity-50"
+              title={runs.length === 0 ? "Process evidence before running correlation." : undefined}
+            >
+              {correlating ? "Correlating…" : "Run correlation"}
+            </button>
+          </div>
+        </div>
+
+        {corrError && (
+          <div className="mt-4">
+            <ErrorBox message={corrError} />
+          </div>
+        )}
+
+        {corrRuns.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-left font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  <th className="py-2 pr-4">Run</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Started</th>
+                  <th className="py-2 pr-4">Finished</th>
+                  <th className="py-2 pr-4">Links</th>
+                  <th className="py-2">Groups</th>
+                </tr>
+              </thead>
+              <tbody>
+                {corrRuns.map((run) => {
+                  const stats = (run.stats ?? {}) as Record<string, unknown>;
+                  return (
+                    <tr key={run.run_id} className="border-b border-slate-900 align-top">
+                      <td className="py-3 pr-4 font-mono text-xs text-cyan-400">{run.run_id}</td>
+                      <td className="py-3 pr-4">
+                        <ProcessingStatusBadge status={run.status} />
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-400">
+                        {run.started_at ? formatDateTime(run.started_at) : "—"}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-400">
+                        {run.finished_at ? formatDateTime(run.finished_at) : "—"}
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-300">
+                        {typeof stats.links === "number" ? stats.links : "—"}
+                      </td>
+                      <td className="py-3 font-mono text-xs text-slate-300">
+                        {typeof stats.groups === "number" ? stats.groups : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
+            No correlation runs yet — process evidence, then run correlation.
           </p>
         )}
       </section>

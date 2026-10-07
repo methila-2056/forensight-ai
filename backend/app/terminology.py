@@ -1,4 +1,4 @@
-"""Canonical terminology constants for FORENSIGHT AI (Architecture v1.1).
+"""Canonical terminology constants for FORENSIGHT AI (Architecture §1).
 
 Every user-facing string that carries a claim about what the system does lives
 here so that wording stays consistent across UI, API documentation, and report
@@ -70,6 +70,29 @@ FUSION_DISCLAIMER = (
 )
 
 # ---------------------------------------------------------------------------
+# Automated analysis (Phase 3)
+# ---------------------------------------------------------------------------
+
+ANALYSIS_RUN_LABEL = "Automated Analysis Run"
+ANALYSIS_SCOPE_NOTE = (
+    "Analysis is limited to the normalized forensic events of this case. "
+    "Rule detections and ML anomaly scores are statistical observations that "
+    "require investigator review."
+)
+ANALYSIS_NO_EVENTS = "No normalized forensic events available for analysis."
+ML_ABSTAIN_NOTE = (
+    "Too few event windows for a meaningful ML comparison - anomaly detection "
+    "abstained and no ML finding was created for this run."
+)
+ANOMALY_SCORE_DESCRIPTION = (
+    "Normalized to [0, 1] over this case's event windows; a higher value "
+    "indicates greater statistical deviation from the case's typical pattern."
+)
+RULE_CONFIDENCE_NOTE = (
+    "Rule confidence is a fixed deterministic indicator weight, not a probability."
+)
+
+# ---------------------------------------------------------------------------
 # Integrity verification labels
 # ---------------------------------------------------------------------------
 
@@ -104,6 +127,19 @@ TIMELINE_LABEL = "Reconstructed Investigation Timeline"
 TIMELINE_DISCLAIMER = (
     "A reconstruction derived from the evidence available in this case. "
     "It is not an established sequence of events."
+)
+
+# ---------------------------------------------------------------------------
+# Correlation / activity groups (Phase 4)
+# ---------------------------------------------------------------------------
+
+CORRELATION_RUN_LABEL = "Correlation Run"
+CORRELATION_NO_EVENTS = (
+    "No normalized forensic events available for correlation."
+)
+CORRELATION_GROUP_NOTE = (
+    "Activity groups are built from reason-tagged correlations between real "
+    "events of this case - no inferred or merged entities."
 )
 
 TRACEABILITY_STEPS = (

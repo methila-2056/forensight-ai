@@ -1,21 +1,27 @@
 """Pydantic request/response schemas (Phase 1: cases, evidence, integrity, custody;
-Phase 2: processing, events)."""
+Phase 2: processing, events; Phase 3: automated analysis, findings, review)."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import (
     CaseStatus,
+    CorrelationType,
     CustodyAction,
     EvidenceStatus,
     EvidenceType,
+    FindingStatus,
+    GroupKind,
     ProcessingStatus,
+    RunStage,
+    RunStatus,
     SeverityLevel,
     SourceType,
+    TimelineSignificance,
 )
 from app.terminology import HASH_ALGORITHM
 
@@ -209,6 +215,11 @@ class EventResponse(BaseModel):
     file_path: Optional[str] = None
     action: Optional[str] = None
     severity: Optional[SeverityLevel] = None
+    anomaly_score: Optional[float] = Field(
+        default=None,
+        description="Anomaly score of this event's analysis window (Phase 3, null before analysis)",
+    )
+    is_anomalous: bool = False
     raw_record_reference: Optional[int] = Field(
         default=None, description="Row number in the original evidence file"
     )
@@ -240,6 +251,284 @@ class EventEvidenceRef(BaseModel):
 class EventDetailResponse(EventResponse):
     raw_record: Optional[RawRecordResponse] = None
     evidence: Optional[EventEvidenceRef] = None
+
+
+# ---------------------------------------------------------------------------
+# Automated analysis (Phase 3)
+# ---------------------------------------------------------------------------
+
+class AnalyzeRequest(BaseModel):
+    actor: str = Field(default="system", max_length=127)
+
+
+class AnalysisRunResponse(BaseModel):
+    run_id: str
+    case_id: str
+    stage: RunStage
+    status: RunStatus
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    stats: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class FindingReviewRequest(BaseModel):
+    status: FindingStatus
+    note: Optional[str] = Field(default=None, max_length=4000)
+    author: str = Field(default="investigator", max_length=127)
+
+
+class FindingSummary(BaseModel):
+    finding_id: str
+    case_id: str
+    kind: Literal["rule", "ml"]
+    run_id: Optional[str] = None
+    rule_id: Optional[str] = None
+    model_name: Optional[str] = None
+    title: str
+    severity: SeverityLevel
+    status: FindingStatus
+    confidence: Optional[float] = None
+    anomaly_score: Optional[float] = None
+    threshold: Optional[float] = None
+    composite_suspicion_score: Optional[float] = None
+    event_count: int = 0
+    evidence_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class FindingListResponse(BaseModel):
+    findings: list[FindingSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class FindingNoteResponse(BaseModel):
+    author: str
+    body: str
+    created_at: datetime
+
+
+class FindingEvidenceResponse(BaseModel):
+    evidence_id: str
+    original_filename: str
+    evidence_type: EvidenceType
+    file_size: int
+    sha256: str
+    uploaded_at: datetime
+
+
+class FindingDetailResponse(BaseModel):
+    finding_id: str
+    case_id: str
+    kind: Literal["rule", "ml"]
+    run_id: Optional[str] = None
+    rule_id: Optional[str] = None
+    model_name: Optional[str] = None
+    model_version: Optional[str] = None
+    feature_version: Optional[str] = None
+    title: str
+    severity: SeverityLevel
+    status: FindingStatus
+    confidence: Optional[float] = None
+    anomaly_score: Optional[float] = None
+    threshold: Optional[float] = None
+    composite_suspicion_score: Optional[float] = None
+    components: Optional[dict[str, Any]] = None
+    feature_snapshot: Optional[dict[str, Any]] = None
+    explanation: Optional[Any] = None
+    reasons: Optional[Any] = None
+    timestamp_start: Optional[datetime] = None
+    timestamp_end: Optional[datetime] = None
+    event_ids: list[str] = []
+    evidence_ids: list[str] = []
+    supporting_events: list[EventResponse] = []
+    evidence: list[FindingEvidenceResponse] = []
+    notes: list[FindingNoteResponse] = []
+    created_at: datetime
+    updated_at: datetime
+
+
+class MlMetricsResponse(BaseModel):
+    case_id: str
+    run_id: Optional[str] = None
+    stats: dict[str, Any] = {}
+    config: dict[str, Any] = {}
+    scope_note: str
+
+
+class FindingTraceResponse(BaseModel):
+    finding_id: str
+    case_id: str
+    kind: Literal["rule", "ml"]
+    events: list[EventDetailResponse] = []
+    evidence: list[FindingEvidenceResponse] = []
+
+
+# ---------------------------------------------------------------------------
+# Correlation, activity groups, timeline, graph (Phase 4)
+# ---------------------------------------------------------------------------
+
+class CorrelateRequest(BaseModel):
+    actor: str = Field(default="system", max_length=127)
+
+
+class CorrelationRunResponse(BaseModel):
+    run_id: str
+    case_id: str
+    status: RunStatus
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    stats: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class CorrelationEventSummary(BaseModel):
+    """Compact event reference used in links, groups, and the timeline."""
+
+    event_id: str
+    timestamp: Optional[datetime] = None
+    source_type: SourceType
+    event_type: str = ""
+    user: Optional[str] = None
+    host: Optional[str] = None
+    source_ip: Optional[str] = None
+    destination_ip: Optional[str] = None
+    process: Optional[str] = None
+    file_path: Optional[str] = None
+    action: Optional[str] = None
+    anomaly_score: Optional[float] = None
+    is_anomalous: bool = False
+    evidence_id: str = ""
+
+
+class CorrelationSummary(BaseModel):
+    correlation_id: str
+    case_id: str
+    run_id: str
+    correlation_type: CorrelationType
+    event_a: CorrelationEventSummary
+    event_b: CorrelationEventSummary
+    time_delta_seconds: Optional[float] = None
+    confidence: float
+    confidence_band: str
+    reason: str
+    shared_entities: dict[str, str] = {}
+    evidence_ids: list[str] = []
+    created_at: datetime
+
+
+class CorrelationDetailResponse(CorrelationSummary):
+    disclaimer: str = ""
+    event_a_detail: Optional[EventDetailResponse] = None
+    event_b_detail: Optional[EventDetailResponse] = None
+
+
+class CorrelationListResponse(BaseModel):
+    correlations: list[CorrelationSummary] = []
+    total: int = 0
+    limit: int = 100
+    offset: int = 0
+    disclaimer: str = ""
+
+
+class GroupSummary(BaseModel):
+    group_id: str
+    case_id: str
+    run_id: str
+    kind: GroupKind
+    title: str
+    severity: SeverityLevel
+    explanation: str
+    time_start: Optional[datetime] = None
+    time_end: Optional[datetime] = None
+    event_count: int = 0
+    correlation_count: int = 0
+    evidence_ids: list[str] = []
+    correlation_uids: list[str] = []
+    created_at: datetime
+
+
+class GroupDetailResponse(GroupSummary):
+    member_events: list[CorrelationEventSummary] = []
+    disclaimer: str = ""
+
+
+class GroupListResponse(BaseModel):
+    groups: list[GroupSummary] = []
+    total: int = 0
+    limit: int = 100
+    offset: int = 0
+    disclaimer: str = ""
+
+
+class TimelineEntry(BaseModel):
+    timestamp: Optional[datetime] = None
+    event_id: str
+    source_type: SourceType
+    event_type: str = ""
+    user: Optional[str] = None
+    host: Optional[str] = None
+    process: Optional[str] = None
+    file_path: Optional[str] = None
+    action: Optional[str] = None
+    anomaly_score: Optional[float] = None
+    is_anomalous: bool = False
+    significance: TimelineSignificance
+    reasons: list[str] = []
+    finding_ids: list[str] = []
+    correlation_ids: list[str] = []
+    evidence_id: str = ""
+    context: bool = False
+
+
+class TimelineResponse(BaseModel):
+    case_id: str
+    label: str
+    disclaimer: str
+    entries: list[TimelineEntry] = []
+    total: int = 0
+    truncated: bool = False
+    note: Optional[str] = None
+
+
+class GraphNode(BaseModel):
+    id: str
+    type: Literal["evidence", "finding", "event"]
+    label: str
+    detail: Optional[str] = None
+    significance: Optional[TimelineSignificance] = None
+    severity: Optional[SeverityLevel] = None
+
+
+class GraphEdge(BaseModel):
+    source: str
+    target: str
+    relation: Literal["contains", "triggered", "correlated"]
+    label: str
+    correlation_type: Optional[CorrelationType] = None
+    confidence: Optional[float] = None
+
+
+class GraphTableRow(BaseModel):
+    source: str
+    relation: str
+    target: str
+
+
+class GraphResponse(BaseModel):
+    case_id: str
+    run_id: Optional[str] = None
+    nodes: list[GraphNode] = []
+    edges: list[GraphEdge] = []
+    table_rows: list[GraphTableRow] = []
+    truncated: bool = False
+    max_nodes: int = 0
+    max_edges: int = 0
+    disclaimer: str = ""
+    note: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

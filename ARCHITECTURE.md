@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.2
+# FORENSIGHT AI — Architecture v1.6
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0, 1, and 2 implemented · This document is the approved specification for all subsequent phases.
+Status: Phases 0–4 implemented, Phase 4.5 core acceptance gate passed · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -28,7 +28,7 @@ FORENSIGHT AI implements: **integrity-preserving ingestion → parsing → norma
 > **Evidence-traceable AI-assisted forensic investigation.**
 
 ```
-FINDING      "RULE-005: Rapid file modification burst"
+FINDING      "FILE-001: Mass file modifications in a short window"
   ↓ REASON   "1,206 write/rename events in 94 s for usr_jdoe;
               anomaly score 0.91 ≥ detection threshold 0.72;
               linked to process event via shared host + user"
@@ -105,15 +105,16 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | `integrity_checks` | Verification history | computed_hash, expected_hash, result, actor, checked_at |
 | `chain_of_custody` | Custody/audit events | timestamp, action, actor, details |
 | `raw_records` | Retained rows incl. rejected ones | row_index, content, reject_reason |
-| `forensic_events` | Normalized events | timestamp, source_type, entities, anomaly_score, metadata, dedupe_hash, raw_record_id |
-| `rule_findings` | Rule hits | rule_id, severity, explanation, reasons, triggered_event_ids, evidence_ids |
-| `ml_findings` | ML findings | model_name, score, threshold, composite_suspicion_score, components |
-| `classifier_results` | Segment-level predictions | window_start/end, predicted_label, class_score |
-| `correlations` | Chain placements | chain_uid, position, link_score, **link_reason** |
-| `investigation_runs` | Pipeline runs | stage, status, **stats (ML methodology + fusion weights)**, error |
+| `forensic_events` | Normalized events | timestamp, source_type, entities, **anomaly_score**, **is_anomalous**, metadata, dedupe_hash, raw_record_id |
+| `rule_findings` | Rule hits | **finding_uid (RFND-)**, run_id, rule_id, severity, confidence, explanation, reasons, **composite_suspicion_score**, **components**, triggered_event_ids, evidence_ids, **status** |
+| `ml_findings` | ML findings | **finding_uid (MFND-)**, run_id, model_name/version, score, threshold, **composite_suspicion_score**, **components**, explanation, **feature_snapshot**, event_ids, evidence_ids, status |
+| `classifier_results` | Segment-level predictions (Phase 6) | window_start/end, predicted_label, class_score |
+| `correlations` | Chain placements (Phase 4) | chain_uid, position, link_score, **link_reason** |
+| `investigation_groups` | Phase 4 activity groups | group_uid, kind, title, explanation, member refs |
+| `investigation_runs` | Pipeline runs | **run_uid (IRUN-)**, stage (Process/Analyze/Correlate/Report), status, **stats (ML methodology + fusion weights + rule config)**, error |
 | `investigator_notes` | Investigator annotations | author, body, finding_uid |
 | `model_metrics` | Real evaluation results | precision, recall, f1, feature_list, dataset_desc |
-| `processing_runs` | (v1.2) Parse/normalize runs | run_id, evidence_id, parser, status, received/normalized/rejected/duplicates, warnings, error, timestamps |
+| `processing_runs` | Parse/normalize runs | run_id, evidence_id, parser, status, received/normalized/rejected/duplicates, warnings, error, timestamps |
 
 Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent` and `Evidence 1→N ProcessingRun`; every finding carries event-ID and evidence-ID arrays for direct traceability.
 
@@ -135,37 +136,40 @@ PROCESS → custody(Analysis Started) → detect type → parser registry
         → rejected row → RawRecord + reject_reason   [never silently dropped]
         → processing log {received, parsed, rejected[{row,reason}], duplicates, normalized}
         → custody(Analysis Completed)
-ANALYZE → FeatureBuilder → IsolationForest (fixed threshold) → annotate events
-        → RuleEngine → RuleFindings → fusion → Composite Suspicion Score
-        → custody(Analysis Started/Completed)
+ANALYZE → FeatureBuilder → 5-minute event windows → Strategy A IsolationForest
+        → dual gate (normalized score + z-gate) → annotate events → RuleEngine
+        → RuleFindings (RFND-) + MlFindings (MFND-) → fusion → Composite Suspicion Score
+        → custody(Automated Analysis Started/Completed)
 CORRELATE → reason-tagged links → chains → Reconstructed Investigation Timeline → graph
 REPORT  → PDF/JSON → custody(Report Generated)
 ```
 
 **Timestamp handling:** ISO-8601 (±Z), `YYYY-MM-DD HH:MM:SS[.fff]`, Apache-style, US format, epoch s/ms — tried in order; unparseable rows are rejected *with reason* and retained. **Field aliases:** `user|username|account → user`, `ip|src_ip|source_ip → source_ip`, `ts|time|timestamp|@timestamp → timestamp`, etc.
 
-**Processing-run semantics (v1.2):** a run reads at most `MAX_RECORDS_PER_RUN` records (default 200 000); any remainder is reported as a warning. Status is `FAILED` when the file cannot be processed safely (unknown format, unreadable content, or recorded SHA-256 no longer matching the stored bytes); `PARTIAL` when rows were rejected, no rows were produced (`received == 0`), or the record cap truncated the input; otherwise `COMPLETED`. Rejects are explained and retained (`raw_records.reject_reason`); duplicates are marked on derived events (never deleted, never silently doubled in counts); reprocessing replaces the derived rows for that evidence and appends a new run entry without modifying raw bytes.
+**Processing-run semantics (v1.2, hardened in v1.6):** a run reads at most `MAX_RECORDS_PER_RUN` records (default 200 000); any remainder is reported as a warning. Status is `FAILED` when the file cannot be processed safely (unknown format, unreadable content, or recorded SHA-256 no longer matching the stored bytes); `PARTIAL` when rows were rejected, no rows were produced (`received == 0`), or the record cap truncated the input; otherwise `COMPLETED`. Rejects are explained and retained (`raw_records.reject_reason`); duplicates are marked on derived events (never deleted, never silently doubled in counts); reprocessing replaces the derived rows for that evidence and appends a new run entry without modifying raw bytes. **Exception (v1.6):** when preserved history already references that evidence's events — correlation links hold a foreign key to the event rows, stored findings/groups hold event-uid lists — the rebuild is *skipped* for that evidence, the existing rows are kept, and the run records an explanatory warning (`rebuild skipped: ...`); append-only history is never rewritten and no run is failed by this condition.
 
-## 9. ML methodology (corrected, single strategy)
+## 9. ML methodology (Strategy A, single strategy)
 
-### 9.1 Event-level anomaly detection
+### 9.1 Strategy A — window-level anomaly detection (implemented, Phase 3)
 
 | Field | Definition |
 |---|---|
-| Model | `sklearn.ensemble.IsolationForest` |
-| random_state | `42` (env `RANDOM_STATE`; recorded per run) |
-| Feature set (16) | hour_sin, hour_cos, event-type one-hot (6), events/5 min, writes/5 min, failed logins/5 min, external connections/5 min, inter-event gap, off-hours flag, rare-IP flag, rare-user flag, entity breadth |
-| Training scope | **Case-scoped** when n ≥ 40 events; otherwise a **global model** trained once on the pooled synthetic corpus (seed 42), persisted in `ml_artifacts/`. Scope recorded per run. |
-| Scoring | `score_samples()` raw scores min–max normalized to an **anomaly score ∈ [0,1]** within the fitted scope (1 = most anomalous). Formula stored with the run. |
-| **Threshold** | **One deterministic strategy: fixed constant `ANOMALY_THRESHOLD = 0.72`** (env-overridable). Not `contamination="auto"`, not percentile-based. |
-| Why this threshold | Percentile/contamination thresholds force a fixed *proportion* of anomalies even in wholly benign data (false positives on the normal scenario) and make the threshold shift case by case (irreproducible). A fixed constant keeps the benign scenario quiet, makes runs comparable, and is auditable by an evaluator. Value 0.72 selected during development from score distributions of the seeded scenarios — documented as a **prototype calibration**. |
-| Reproducibility | Fixed seed, fixed feature order, fixed threshold, single-threaded scoring, seeded demo data → identical scores (asserted by test). |
+| Unit of scoring | **Non-overlapping 5-minute windows** (`ANALYSIS_WINDOW_MINUTES=5`, floor-aligned); each window aggregates all case events falling inside it |
+| Feature set (per window, deterministic order) | hour_sin, hour_cos, event-type counts one-hot, total events, writes, failed logins, external connections, distinct users, distinct hosts, distinct IPs, inter-event gap stats, off-hours ratio, rare-IP flag, rare-user flag, entity breadth — see `engines/features.py` |
+| Model | `sklearn.ensemble.IsolationForest(n_estimators=ML_N_ESTIMATORS=200, random_state=RANDOM_STATE=42, n_jobs=1)` |
+| Scoring | `decision_function()` raw values min–max normalized to a **window anomaly score ∈ [0,1]** (1 = most anomalous); `score_samples` recorded alongside; formula stored with the run |
+| **Dual detection gate** | A window is anomalous iff **normalized score ≥ `ANOMALY_THRESHOLD` (0.72, env)** AND **raw score < mean − `ML_Z_SIGMAS` (2.0) · std** across scored windows. Both conditions must hold (`threshold_gate` + `z_gate` recorded per window) |
+| Why two gates | The fixed constant alone can fire on dense benign activity; the z-gate requires the window to be a statistical outlier *relative to this case*, keeping benign scenarios quiet while staying fully deterministic and auditable |
+| **Abstention** | If fewer than `ML_MIN_WINDOWS` (8) windows exist, the model **abstains**: no scores, no ML findings, run stats record `abstained=true` with a human-readable reason — the system says nothing rather than guessing |
+| Reproducibility | Fixed seed, fixed feature order, fixed thresholds, single-threaded scoring, seeded demo data → identical scores across runs (asserted by test) |
 
-**Stored with every `InvestigationRun.stats`:** `model_name, random_state, feature_list, training_scope, scoring_method, threshold_value, threshold_method="fixed_constant", score_normalization, sklearn_version, fusion_weights, fusion_formula_version`.
+**Stored with every `InvestigationRun.stats`:** `model_name, model_version, random_state, feature_list, training_scope="case", scoring_method, score_normalization, threshold_value, threshold_method="fixed_constant", threshold_gate, z_sigmas, decision_gate, reference_mean, reference_std, window_minutes, windows_scored, abstained, sklearn_version, fusion_weights, fusion_formula_version, rule_config`.
 
-**UI contract:** every display shows **"Anomaly score"** *and* **"Detection threshold"** side by side, with the note: *"The anomaly score indicates statistical deviation from this case's typical event patterns. It is not proof of malicious activity and requires investigator review."*
+**Anchoring to events:** each anomalous window's score is written onto the events inside it (`ForensicEvent.anomaly_score`, `is_anomalous`); an ML finding (`MFND-{n:06d}`) is created per anomalous window with the **mean score of its triggering events**, `feature_snapshot`, severity **High if score ≥ `ML_HIGH_SCORE` (0.9) else Medium**, capped at `RULE_MAX_FINDINGS_PER_RULE` (10) per run.
 
-### 9.2 Segment-level classification (separate concept)
+**UI contract:** every display shows **"Anomaly score"** *and* **"Detection threshold"** side by side, with the note: *"The anomaly score indicates statistical deviation from this case's typical event patterns. It is not proof of malicious activity and requires investigator review."* ML-metrics endpoint exposes the full stats payload (`GET /api/cases/{id}/ml-metrics`).
+
+### 9.2 Segment-level classification (planned, Phase 6 — not implemented)
 
 | Field | Definition |
 |---|---|
@@ -177,15 +181,17 @@ REPORT  → PDF/JSON → custody(Report Generated)
 | Claims | **No real-world performance claims.** Mandatory label: **"Trained and evaluated on synthetic demonstration data."** repeated in the report's Limitations. |
 | Output wording | e.g. *"Window 10:41–10:51 classified: ransomware_like (class score 0.83) — synthetic-data model, requires investigator validation."* |
 
-### 9.3 Hybrid fusion — Composite Suspicion Score
+### 9.3 Hybrid fusion — Composite Suspicion Score (implemented, Phase 3)
 
 ```
 Composite Suspicion Score (CSS) ∈ [0,1] — uncalibrated heuristic, NOT a probability
 
 CSS = 0.40 · RuleComponent        (0 if no rule; else 0.5 + 0.5·severity weight:
                                    Low .25 / Medium .5 / High .75 / Critical 1.0)
-    + 0.35 · AnomalyComponent     (anomaly score of anchor event, or chain mean)
-    + 0.25 · CorrelationComponent (distinct linked evidence sources ÷ 5, capped 1.0)
+    + 0.35 · AnomalyComponent     (mean anomaly score of the finding's triggering
+                                   events; 0 if no anomaly annotation)
+    + 0.25 · CorrelationComponent (distinct supporting evidence files ÷ 5, capped 1.0;
+                                   as-built keeps this Phase 3 proxy — see Changelog v1.5)
 
 Bands: <0.35 Informational · 0.35–0.55 Low interest ·
        0.55–0.75 Anomalous — review · ≥0.75 Potentially suspicious — high priority
@@ -193,40 +199,50 @@ Bands: <0.35 Informational · 0.35–0.55 Low interest ·
 
 Weights live in `engines/ml/fusion.py` (`fusion_v1`), are shown verbatim in the UI explanation panel and in the report, and are stored in `InvestigationRun.stats`. Caption: *"The Composite Suspicion Score is an uncalibrated heuristic composite — not a probability and not proof of malicious activity. Requires investigator validation."*
 
-## 10. Rule engine (transparent)
+## 10. Rule engine (transparent, implemented, Phase 3)
 
-Deterministic rules, each producing rule_id, title, severity, triggering events, evidence IDs, timestamp span, and a human explanation:
+Deterministic, config-driven rules (`app/engines/rules/`), each producing rule_id, title, severity, confidence, triggering events, evidence IDs, timestamp span, human explanation, and structured `reasons`. Findings are capped at `RULE_MAX_FINDINGS_PER_RULE` (10) per rule per run; disabled rules produce nothing (`RULE_<ID>_ENABLED` env, e.g. `RULE_AUTH002_ENABLED=false`).
 
-`RULE-001` failed logins → success · `RULE-002` unusual source IP · `RULE-003` PowerShell → suspicious process activity · `RULE-004` mass file modifications in a short window · `RULE-005` mass rename/write activity · `RULE-006` external connection shortly after process execution · `RULE-007` improbable login sequence from timestamps · `RULE-008` evidence hash mismatch.
+| Rule ID | Title | Severity | Trigger (config defaults) |
+|---|---|---|---|
+| `AUTH-001` | Repeated failed logins followed by a successful login | High (failure→success) / Medium (standalone burst) | ≥ `RULE_AUTH001_MIN_FAILURES` (3) failures for one user within `RULE_AUTH001_WINDOW_MINUTES` (15), either followed by a success in-window or as a burst without success |
+| `AUTH-002` | Authentication events from an unusual external source IP | Medium | ≥ `RULE_AUTH002_MIN_EXTERNAL_LOGINS` (3) auth events from one external source IP |
+| `AUTH-003` | Rapid login sequence from two distinct source addresses | Low | two logins for one user within `RULE_AUTH003_WINDOW_SECONDS` (60) from different source IPs |
+| `PROC-001` | Scripting or interpreter process execution | Medium; **High** when command line carries evasion indicators (`-enc`, `-w hidden`, `frombase64`, `downloadstring`, `iex(`, …) | process event on a scripting host/interpreter (PowerShell, cmd, wscript, certutil, python, …) |
+| `FILE-001` | Mass file modifications in a short window | Medium; **High** at ≥ `RULE_FILE001_HIGH_MIN` (15) | ≥ `RULE_FILE001_MIN_MODIFICATIONS` (6) modifying actions (write/delete/create/copy/…) for one host+user within `RULE_FILE001_WINDOW_MINUTES` (15) |
+| `FILE-002` | Rapid file rename burst | High | ≥ `RULE_FILE002_MIN_RENAMES` (3) renames for one host+user within `RULE_FILE002_WINDOW_MINUTES` (10) |
+| `NET-001` | External connection shortly after process execution | Medium | ≥ `RULE_NET001_MIN_CONNECTIONS` (2) external-connection events on a host, each within `RULE_NET001_WINDOW_MINUTES` (15) after a process event on the same host |
 
-Rule findings and ML findings are distinct record types and are displayed in separate sections; fusion combines them into the Composite Suspicion Score.
+- **Entity scoping:** burst rules are keyed per user, or per host+user, or per source IP as appropriate — one noisy user cannot trigger for the whole case.
+- **External IP:** outside RFC1918 private space and unobserved as a source in the case (`ipaddress` module + case scoping), stated as a statistical observation.
+- **Determinism:** findings ordered by (timestamp, rule_id); UIDs `RFND-{n:06d}` assigned per analysis run in Python (session `autoflush=False`).
+- **Confidence:** fixed deterministic indicator weight per severity (Low 0.4 / Medium 0.6 / High 0.8 / Critical 0.95) — not a probability (`RULE_CONFIDENCE_NOTE`).
+- Rule findings and ML findings are distinct record types displayed in separate sections; fusion combines them into the Composite Suspicion Score. IDs are the stable contract used by tests, UI filters, and the terminology guard.
 
-## 11. Multi-source correlation (reasoned, non-causal)
+## 11. Multi-source correlation (reasoned, non-causal — implemented, Phase 4)
 
-Two layers, and **every link carries its reason**:
+Every link carries an explicit, evidence-backed reason. Temporal association is never presented as causation.
 
-1. **Entity links** — shared `user`, `host`, `source_ip`, `destination_ip`, `process`, `file_path`, `session`.
-2. **Temporal links** — sliding window (default 15 min) over time-sorted events, plus typed progression (authentication → process → file → network → browser).
+**Correlation types (implemented order, `CORR-001` … `CORR-005`):**
 
-```
-link_score = w1·exp(−Δt/τ) + w2·entity_overlap + w3·type_progression
-```
+| ID | Type | Rule |
+|---|---|---|
+| `CORR-001` | Same-host activity chain | events share `host` within `CORRELATION_WINDOW_SECONDS` (300) |
+| `CORR-002` | Same-user activity chain | events share `user` within the window |
+| `CORR-003` | Same-source-IP authentication cluster | auth/network events share `source_ip` within the window |
+| `CORR-004` | Process → file relationship | process event on same host with file events within the window |
+| `CORR-005` | Process → network relationship | process event on same host with external network events within the window |
 
-API/UI payload per link:
+**Confidence (additive, capped at 1.0):** same host **+0.30**, same user **+0.30**, same time window **+0.25**, same source IP **+0.15** — presented as LOW / MEDIUM / HIGH bands. Each stored correlation records `event_a_id`, `event_b_id`, type, confidence, **`reason` text**, evidence IDs, and the run that produced it. Runs are append-only, `CORR-{n:06d}`.
 
-```json
-{ "temporal_proximity": "42 seconds",
-  "shared_entity": "user = usr_jdoe",
-  "event_progression": "authentication → process",
-  "correlation_score": 0.78 }
-```
+**Activity groups:** correlated events are clustered into `investigation_groups` (e.g. *Authentication cluster*, *Process execution cluster*, *File activity burst*, *External connection cluster*) with title, kind, time span, member events, and a human explanation. Only evidence-backed clusters are grouped — no inferred entities.
 
-Caption everywhere correlation appears: *"Correlation indicates co-occurrence and shared context, not causation. Requires investigator validation."* Chains are deduplicated, capped (top 10), and each hop is clickable down to the raw record.
+**Caption everywhere correlation appears:** *"Correlation indicates co-occurrence and shared context, not causation. Requires investigator validation."*
 
-## 12. Reconstructed Investigation Timeline
+## 12. Reconstructed Investigation Timeline (implemented, Phase 4)
 
-- Union of anomalous events, rule-triggering events, chain members, plus ±2 min context.
-- Ordered by timestamp; each entry carries confidence (rule confidence / score band / link score), an explanation, and **source evidence IDs + raw record IDs** — click-through reaches the original row.
+- Union of anomalous events, rule-triggering events, correlation members, plus ±2 min context.
+- Ordered by **real recorded timestamps** (never fabricated); each entry carries significance (`NORMAL` / `NOTABLE` / `SUSPICIOUS`, derived from Phase 3 findings — ML anomaly → NOTABLE, rule hit or composite band ≥ 0.75 → SUSPICIOUS), an explanation, and **source evidence IDs + raw record IDs** — click-through reaches the original row.
 - Heuristic phase segmentation: *Initial Access / Execution / Impact / Exfiltration / Benign Context* (ATT&CK-style labels, described as heuristic).
 - Label: **"Reconstructed Investigation Timeline"** with the note: *"A reconstruction derived from the evidence available in this case. It is not an established sequence of events."*
 
@@ -245,8 +261,8 @@ No generative model is enabled. An optional LLM adapter interface exists but is 
 All files carry a `SYNTHETIC / DEMONSTRATION DATA` marker; fictional personas only; generated by `demo/generate_scenarios.py` with seed 42 (reproducible hashes).
 
 - **Scenario A — Normal activity** (~150 events): expected — no high-severity findings, low anomaly scores. Proves the system does not raise alarms without cause.
-- **Scenario B — Account compromise** (~220 events): failed-login burst → success from a new external IP off-hours → recon → PowerShell → targeted reads → outbound connection. Expected: RULE-001/002/003/006/007.
-- **Scenario C — Ransomware-like incident** (~450 events): browser download → PowerShell → 1,200 file modifications/renames in 90 s → shadow-copy deletion → external connection. Conclusion wording: *"Evidence is consistent with ransomware-like activity and requires investigator validation."*
+- **Scenario B — Account compromise** (~220 events): failed-login burst → success from a new external IP → recon → PowerShell → targeted reads → outbound connection. Expected: AUTH-001/002/003, PROC-001, NET-001, anomalous windows.
+- **Scenario C — Ransomware-like incident** (~450 events): browser download → PowerShell → 1,200 file modifications/renames in 90 s → shadow-copy deletion → external connection. Expected: PROC-001, FILE-001, FILE-002, NET-001. Conclusion wording: *"Evidence is consistent with ransomware-like activity and requires investigator validation."*
 
 Files per scenario: `authentication.csv, process.csv, file_activity.csv, network.csv, browser.csv` (+ `system.log` for C) — internally consistent users/hosts/IPs so correlation genuinely works.
 
@@ -286,15 +302,37 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/api/evidence/{evidence_id}/processing` | Runs + parse counts for one evidence item |
 | GET | `/api/evidence/{evidence_id}/rejected-records` | Retained malformed/rejected rows with reasons |
 
+**Implemented (Phase 3):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/analyze` | Run automated analysis (rules + Strategy A + fusion) — append-only, custody `Automated Analysis Started` / `Automated Analysis Completed` |
+| GET | `/api/cases/{case_id}/analysis-runs` | Analysis run history (newest first) with ML methodology + rule config in `stats` |
+| GET | `/api/cases/{case_id}/findings` | Findings (filters: kind `rule`/`ml`, severity, status, run_id; limit/offset) |
+| GET | `/api/cases/{case_id}/findings/{finding_id}` | Finding detail: reasons, components, CSS + band, traceability IDs, investigator notes |
+| GET | `/api/cases/{case_id}/findings/{finding_id}/trace` | Evidence ladder: finding → events → raw records → evidence + SHA-256 |
+| PATCH | `/api/cases/{case_id}/findings/{finding_id}` | Review workflow: New → Under Review → Confirmed/Dismissed (invalid transitions → 409) |
+| GET | `/api/cases/{case_id}/ml-metrics` | ML methodology stats + config for the latest analysis run |
+
+**Implemented (Phase 4):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/correlate` | Run cross-source correlation — reason-tagged links + activity groups (append-only, no custody actions) |
+| GET | `/api/cases/{case_id}/correlation-runs` | Correlation run history (newest first) with stats |
+| GET | `/api/cases/{case_id}/correlations` | Correlations of a case (filters: type, run_id, limit ≤ 500/offset; latest run by default) |
+| GET | `/api/correlations/{correlation_id}` | One correlation with both events + raw record / evidence (SHA-256) details |
+| GET | `/api/cases/{case_id}/groups` | Activity groups (filters: kind, run_id) |
+| GET | `/api/groups/{group_id}` | One activity group with member events |
+| GET | `/api/cases/{case_id}/timeline` | Reconstructed Investigation Timeline (significance from findings; `TIMELINE_MAX_ENTRIES` cap) |
+| GET | `/api/cases/{case_id}/graph` | Evidence graph (capped nodes/edges + `table_rows` fallback) |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
 GET  /api/evidence/{ev_id}[/download|/records]
-POST /api/cases/{id}/analyze                 GET /api/cases/{id}/findings · /ml-metrics
-GET  /api/findings/{uid}/trace               PATCH /api/findings/{uid}   (Confirmed/Dismissed)
-POST /api/cases/{id}/correlate               GET /api/cases/{id}/correlations · /timeline · /graph
-POST /api/cases/{id}/assistant               POST /api/cases/{id}/notes
-POST /api/cases/{id}/report                  POST /api/demo/load
+POST /api/cases/{id}/assistant              POST /api/cases/{id}/notes
+POST /api/cases/{id}/report                 POST /api/demo/load
 ```
 
 All errors use a uniform envelope `{error:{code,message,detail}}`; server paths are never exposed.
@@ -305,12 +343,13 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 
 ## 17. Testing strategy
 
-- **Unit:** hashing (known vectors), integrity verified/mismatch, write-once refusal, each parser, normalizer (timestamps/aliases/rejects/dedupe), rule engine positive+negative, feature determinism, anomaly scoring range + seed reproducibility, classifier metrics real, correlation windows/link reasons, timeline ordering, graph generation, assistant intents incl. insufficient-evidence, PDF contains hashes.
+- **Unit:** hashing (known vectors), integrity verified/mismatch, write-once refusal, each parser, normalizer (timestamps/aliases/rejects/dedupe), rule engine positive+negative (per-rule unit tests + catalog assertions), feature windowing determinism, anomaly dual-gate + abstention + seed reproducibility, fusion formula/bands, review workflow transitions, correlation windows/link reasons, timeline ordering, graph generation, assistant intents incl. insufficient-evidence, PDF contains hashes.
 - **Parsing unit:** CSV header/encoding fallback/column normalize/row-numbering; JSON object/array/wrapper; detection precedence (JSON wins over extension, declared type, unknown-format errors); timestamp formats incl. epoch, Apache, offsets; normalizer metadata preservation of source-specific fields.
-- **Processing API:** run lifecycle (COMPLETED/PARTIAL/FAILED), record cap warning, integrity mismatch → FAILED run, unknown format → 422 + FAILED, rejects retained with reasons, duplicates marked with `duplicate_of`, reprocessing replaces derived rows, events list/detail + filter contract.
+- **Processing API:** run lifecycle (COMPLETED/PARTIAL/FAILED), record cap warning, integrity mismatch → FAILED run, unknown format → 422 + FAILED, rejects retained with reasons, duplicates marked with `duplicate_of`, reprocessing replaces derived rows (or is skipped with an explanatory warning when history pins them), events list/detail + filter contract.
 - **API:** CRUD + happy/error paths (413/415/404/409).
 - **End-to-end:** demo load → verify → process → analyze → correlate → timeline → graph → assistant → report; asserts Scenario A quiet / C fires; raw hashes unchanged after pipeline; banned terms absent from UI strings.
 - **Regression gate every phase:** `pytest` green + `npm run build` green.
+- **Phase 4.5 core gate:** a fresh-temp-database end-to-end script that drives every API route (upload → verify → process → analyze → correlate → timeline → graph → review → re-run), checks raw-hash immutability (pre == recorded == post), finding/timeline/graph traceability chains, repeatability across two identical pipelines, empty/error/422/404/409 envelopes, append-only history on repeated operations, SQLite table/FK integrity (`PRAGMA foreign_key_check`), the three demo scenarios with honest ML abstention, a terminology harvest over every captured response, and informational performance timings.
 
 ## 18. Risks and limitations
 
@@ -322,6 +361,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | Composite score misread as a probability | Field never named "probability"; caption mandatory; components shown |
 | Correlation read as causation | Per-link reasons required; caption on every correlation view |
 | Raw evidence mutated by future changes | Write-once store (no overwrite API) + post-pipeline hash regression test |
+| Reprocessing rewrites history that already references it | Derived rows pinned by correlation links / finding / group references are never replaced — the rebuild is skipped for that evidence with an explanatory warning (`processing_service._history_pins_events`) |
 | Scope creep | Tier system with cut order; Phase 4.5 core gate before secondary work |
 | Synthetic-data overclaim | Mandatory synthetic-data labels on classifier metrics and demo banners |
 | Hallucinated assistant answers | Deterministic retrieval only; insufficient-evidence path; LLM disabled |
@@ -332,11 +372,11 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 |---|---|---|
 | **0** | Scaffolding, data model, terminology guard, write-once store, frontend skeleton | 12 acceptance criteria below — **DONE** |
 | **1** | Case management + upload + SHA-256 verify + controlled integrity test + custody UI | upload→hash→verify→mismatch works in UI — **DONE** |
-| 2 | Parsers + normalizer + processing log + events UI | demo files → correct counts, rejects explained — **DONE** |
-| 3 | Rules + anomaly detection + fusion + explainability UI | Scenario C fires, Scenario A quiet, metrics real |
-| 4 | Reasoned correlation + reconstructed timeline + dashboard | multi-source chain, traceable entries |
-| **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged |
-| 5 | Evidence graph | click-through traceability |
+| **2** | Parsers + normalizer + processing log + events UI | demo files → correct counts, rejects explained — **DONE** |
+| **3** | Rules + Strategy A anomaly detection + fusion + findings UI | Scenario C fires, Scenario A quiet, findings reviewable — **DONE** |
+| **4** | Reasoned correlation + activity groups + reconstructed timeline + evidence graph + investigation UI | multi-source chains, traceable entries — **DONE** |
+| **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged — **DONE** |
+| 5 | Dashboard | scenario stats |
 | 6 | Report (PDF/JSON) + segment classifier metrics | 16-section report with disclaimers |
 | 7 | Notes + assistant | example questions answered from evidence |
 | 8 | Demo loader + polish + history | evaluator journey works end-to-end |
@@ -401,6 +441,44 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 17 | Six synthetic, seeded, labelled demo datasets; identical counts on reprocessing; SYNTHETIC/DEMONSTRATION labels + README | ✅ |
 | 18 | Regression gate: `pytest` green (Phases 0–2) + `npm run build` green; raw hashes unchanged; docs updated; banned terms absent from constants and docs | ✅ |
 
+### Phase 3 acceptance criteria (all 15) — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Rule engine with the full catalog (AUTH-001/002/003, PROC-001, FILE-001/002, NET-001), deterministic ordering, per-rule cap (10), config snapshot stored per run | ✅ |
+| 2 | Rules are config-driven via env (`RULE_<ID>_ENABLED`, thresholds) with no hard-coded INT rules | ✅ |
+| 3 | Strategy A: non-overlapping 5-minute windows, IsolationForest (seed 42), min-max normalized decision score | ✅ |
+| 4 | Dual detection gate: normalized ≥ 0.72 AND raw < mean − 2·std; both recorded per window | ✅ |
+| 5 | Abstention when windows < 8 — no ML findings, reason recorded in run stats | ✅ |
+| 6 | Events annotated with `anomaly_score` / `is_anomalous`; UI shows score alongside threshold | ✅ |
+| 7 | ML findings (`MFND-`) with feature snapshot, severity High ≥ 0.9 / else Medium, capped at 10 | ✅ |
+| 8 | Fusion `fusion_v1`: CSS = 0.40·rule + 0.35·anomaly + 0.25·correlation proxy, band assignment, stored in finding + run | ✅ |
+| 9 | `POST /analyze` creates an `IRUN-` run (append-only history), custody `Automated Analysis Started/Completed` | ✅ |
+| 10 | Findings list filters (kind/severity/status/run) + pagination; detail + trace endpoints expose the full evidence ladder | ✅ |
+| 11 | Review workflow enforced server-side: New → Under Review → Confirmed/Dismissed; invalid/unchanged → 409 | ✅ |
+| 12 | `GET /ml-metrics` returns methodology stats + config + scope note | ✅ |
+| 13 | Findings UI: list with filters/status badges, detail with reasons/components/CSS band/trace, run history on case page | ✅ |
+| 14 | Tests: 17 analysis tests incl. dual-gate behavior, abstention, determinism, fusion formula/bands, review workflow, re-analysis append-only | ✅ |
+| 15 | Regression gate: `pytest` green (180 tests) + `npm run build` green; docs updated to v1.4; banned terms absent from constants and docs | ✅ |
+
+### Phase 4 acceptance criteria — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Five correlation types (`CORR-001`…`CORR-005`) evaluated per event pair inside `CORRELATION_WINDOW_SECONDS` (300); precedence most-specific-first; one type per pair | ✅ |
+| 2 | Additive confidence (time +0.25, host +0.30, user +0.30, IP +0.15, cap 1.0) with LOW/MEDIUM/HIGH bands; every link stores an explicit `reason` | ✅ |
+| 3 | Activity groups = union-find over links (≥ 2 events), capped (`MAX_GROUPS_PER_RUN` 50, `MAX_GROUP_MEMBERS` 200), with kind, title, severity, time span, explanation | ✅ |
+| 4 | Correlation runs append-only (`CORR-{n:06d}` run / `COR-{n:06d}` link / `GRP-{n:06d}` group); re-correlation never rewrites history | ✅ |
+| 5 | Timeline = union of rule/ML/anomalous events + correlation members + ±2 min context, ordered by real timestamps, significance `SUSPICIOUS`/`NOTABLE`/`NORMAL`, capped at `TIMELINE_MAX_ENTRIES` (500) with a note | ✅ |
+| 6 | Evidence graph: evidence → finding → event → correlation layers, capped at 200 nodes / 500 edges, always includes `table_rows` fallback | ✅ |
+| 7 | API: 8 endpoints per §15 with uniform error envelope (400 `NO_NORMALIZED_EVENTS`, 404 run/correlation/group not found, 422 unknown type/kind, `correlations` limit ≤ 500) | ✅ |
+| 8 | Correlation records **no** custody actions (custody CHECK constraints untouched) | ✅ |
+| 9 | Investigation UI: run correlation + run history, correlation filters + row detail (reason, shared entities, both events with raw record + evidence SHA-256), group detail, timeline with significance filter, React Flow graph + table fallback | ✅ |
+| 10 | Case page: Cross-source correlation section (Open investigation, Run correlation, run history) | ✅ |
+| 11 | Tests: 26 correlation tests (links/groups/timeline/graph engines + API + wording guards); full suite green | ✅ |
+| 12 | Regression gate: `pytest` green (206 tests) + `npm run build` green; docs updated to v1.5; banned terms absent from constants and docs | ✅ |
+| 13 | Deferred (not in Phase 4 as-built): heuristic phase segmentation of the timeline; fusion still uses the Phase 3 correlation proxy (§9.3) | ⚠️ deferred |
+
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 
 1. **Integrity terminology.** SHA-256 is described only as recording and verifying *file integrity*. `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` mean byte-level match/mismatch with the recorded hash. A standing disclaimer states that hashing does not establish who created or collected a file. Naming is *Evidence Integrity Verification* everywhere (module, page, endpoints `/verify`, `/integrity-test`).
@@ -427,3 +505,36 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 6. **Reprocessing semantics.** A new run replaces the derived raw-record/event rows for that evidence and appends a run entry; raw evidence bytes and the recorded SHA-256 are never written to. Evidence status is restored across failed runs.
 7. **API additions.** `POST /cases/{id}/process`, `GET /cases/{id}/processing-runs`, `GET /cases/{id}/events`, `GET /cases/{id}/events/{event_id}`, `GET /evidence/{id}/processing`, `GET /evidence/{id}/rejected-records` (the last one is an addition beyond the Phase 2 endpoint list, for direct rejects review).
 8. **Timestamp assumptions documented.** Naive timestamps are treated as UTC with an explicit `assumed UTC (no timezone in source)` note; offset timestamps are converted to UTC with a note; epoch values carry `UTC (epoch value)`; unparseable timestamps are rejected without inventing a value.
+
+## 23. Changelog — v1.2 → v1.4 additions (Phase 3)
+
+*(v1.3 was folded into this revision; the code references v1.4 section numbers.)*
+
+1. **Strategy A replaces event-level scoring (§9.1).** Anomaly detection scores **non-overlapping 5-minute windows** (not individual events) with a seeded IsolationForest over a deterministic 18-feature window vector. Detection requires the **dual gate**: min-max normalized decision score ≥ `ANOMALY_THRESHOLD` (0.72) **and** raw score below `mean − ML_Z_SIGMAS (2.0)·std` for the case. The model **abstains** when a case has fewer than `ML_MIN_WINDOWS` (8) windows. Window scores are annotated onto contained events (`anomaly_score`, `is_anomalous`).
+2. **Rule catalog implemented (§10).** Stable IDs `AUTH-001/002/003`, `PROC-001`, `FILE-001/002`, `NET-001` replace the placeholder `RULE-00n` list. All thresholds are env-configurable (`RULE_*`), a config snapshot is stored per run, findings are capped at 10 per rule, and confidence is a documented deterministic severity weight (not a probability).
+3. **Finding identity and review workflow.** Analysis runs carry `IRUN-{n:06d}`; findings carry `RFND-{n:06d}` (rule) / `MFND-{n:06d}` (ML). Findings have a status lifecycle (New → Under Review → Confirmed/Dismissed) enforced server-side with 409 on invalid or unchanged transitions.
+4. **Fusion implemented (§9.3).** `fusion_v1` computes CSS = 0.40·rule + 0.35·anomaly + 0.25·correlation (Phase 3 proxy: distinct supporting evidence ÷ 5) with documented bands; the payload carries formula, weights, per-component values, and the uncalibrated-heuristic note. Stored on every finding.
+5. **Custody actions extended.** Automated analysis records `Automated Analysis Started` / `Automated Analysis Completed`; investigator review records `Investigator Reviewed`.
+6. **API additions.** `POST /cases/{id}/analyze`, `GET /cases/{id}/analysis-runs`, `GET /cases/{id}/findings`, `GET /cases/{id}/findings/{finding_id}`, `GET /cases/{id}/findings/{finding_id}/trace`, `PATCH /cases/{id}/findings/{finding_id}`, `GET /cases/{id}/ml-metrics` (investigator notes are embedded in the finding detail response).
+7. **Findings UI.** Case page gains a processing/analysis section (run button, run history, findings link); new findings list page (filters, status/kind/severity badges, CSS band) and finding detail page (reasons, components, event trace with per-event anomaly scores, review actions).
+8. **Phase 4 spec refined (§11–§12).** Correlation is specified as five explicit types (`CORR-001`…`CORR-005`) inside `CORRELATION_WINDOW_SECONDS` (300) with additive confidence weights (host/user +0.30, time +0.25, IP +0.15), deduplicated activity groups, a significance-annotated timeline (`NORMAL`/`NOTABLE`/`SUSPICIOUS`), and a capped evidence graph (200 nodes / 500 edges, table fallback).
+
+## 24. Changelog — v1.4 → v1.5 additions (Phase 4)
+
+1. **Correlation engine implemented (§11).** `engines/correlation` evaluates every dated event pair inside `CORRELATION_WINDOW_SECONDS` (300) and produces reason-tagged links of type `CORR-001`…`CORR-005`, with most-specific-first precedence (`CORR-004` > `CORR-005` > `CORR-002` > `CORR-003` > `CORR-001`) so each pair carries exactly one type. Confidence is the explicit additive weight (time +0.25, host +0.30, user +0.30, source IP +0.15, cap 1.0) banded LOW/MEDIUM/HIGH (≥0.65 / ≥0.85) — an uncalibrated weight, never a probability. Caps: `CORRELATION_MAX_LINKS` 5000.
+2. **Activity groups.** Union-find over the links (≥ 2 member events) into `investigation_groups` (`GRP-{n:06d}`) with kind (authentication/process/file/network/external), title, severity, time span, member events, and a human explanation; capped at `MAX_GROUPS_PER_RUN` (50) and `MAX_GROUP_MEMBERS` (200). No inferred or merged entities — only real events of the case.
+3. **Runs and identity.** Correlation runs are append-only (`CORR-{n:06d}`), newest-first history with per-run stats; links `COR-{n:06d}`. Correlation records **no custody actions** (the custody action vocabulary is unchanged; extending it would violate the existing CHECK constraints for no benefit).
+4. **Timeline implemented (§12, partial).** `engines/timeline` builds the union of rule-triggering events, ML/anomalous events, and correlation members plus ±`TIMELINE_CONTEXT_MINUTES` (2) of context, ordered by real recorded timestamps, each entry carrying significance (`SUSPICIOUS` from rule hits, `NOTABLE` from ML/anomalous, `NORMAL` context), reasons, finding IDs, and correlation IDs; capped at `TIMELINE_MAX_ENTRIES` (500) with an explanatory note. *Deferred:* heuristic phase segmentation (Initial Access / Execution / …) and raw-record IDs embedded per entry — the finding trace and event detail pages already reach the original row.
+5. **Evidence graph implemented (§5/§15).** `engines/graph` layers evidence → findings → events with `contains` / `triggered` / `correlated` edges, capped at 200 nodes / 500 edges, and always returns a `table_rows` fallback so the graph is readable without the canvas. The UI renders it with React Flow (MIT) and shows the table underneath.
+6. **API additions.** `POST /cases/{id}/correlate`, `GET /cases/{id}/correlation-runs`, `GET /cases/{id}/correlations`, `GET /correlations/{id}`, `GET /cases/{id}/groups`, `GET /groups/{id}`, `GET /cases/{id}/timeline`, `GET /cases/{id}/graph` (§15). Error envelope codes: `NO_NORMALIZED_EVENTS` (400), `CORRELATION_RUN_NOT_FOUND` / `CORRELATION_NOT_FOUND` / `GROUP_NOT_FOUND` (404), `UNKNOWN_CORRELATION_TYPE` / `UNKNOWN_GROUP_KIND` (422).
+7. **Investigation UI.** New `InvestigationPage` (`/cases/{id}/investigation`): correlation run + history with stats chips, correlation list with type/run filters and row-level detail (reason, shared entities, both events with raw record + evidence SHA-256), activity groups with kind filter and member detail, timeline with significance filter, React Flow graph with table fallback and caps display. Case page gains a *Cross-source correlation* section (open investigation, run button, run history).
+8. **Fusion note.** The fusion CorrelationComponent still uses the Phase 3 proxy (distinct supporting evidence ÷ 5) — real correlation links power the correlation, timeline, and graph surfaces; rewiring `fusion_v1` to consume stored links is explicitly deferred (the formula is versioned and changing it would alter Phase 3 finding scores). §9.3 updated to say so.
+9. **Dependencies.** Frontend adds `reactflow` 11 (MIT, evidence graph). Legacy empty Phase 4 tables in existing databases are healed at startup by a minimal schema guard (`db.py`).
+
+## 25. Changelog — v1.5 → v1.6 additions (Phase 4.5 core acceptance gate)
+
+1. **Reprocessing pinned by history (defect fixed).** Re-processing evidence after a correlation run failed with `FOREIGN KEY constraint failed` on `forensic_events` (recorded as a `PROCESSING_FAILED` run plus a traceback in the server log) because `correlations.event_a_id/b_id` reference those rows; stored findings and activity groups additionally pin event UIDs. `processing_service._history_pins_events` now checks correlation links (hard FK) and finding/group event references (soft) *before* rebuilding: pinned evidence keeps its rows, the run completes normally with an explanatory `rebuild skipped: ...` warning, and append-only history is never rewritten. Unpinned reprocessing behaves exactly as before (replaces derived rows, keeps run history — `test_reprocessing_replaces_derived_rows_and_keeps_run_history`).
+2. **Core gate executed.** Fresh-temp-database gate covering §4–§11, §13, §14, §16: all 35 API routes exercised, raw hashes pre == recorded == post, finding/timeline/graph traceability chains verified, two identical pipelines compared event-for-event, error/empty envelopes verified (400 `NO_NORMALIZED_EVENTS`, 409 transitions, 422 filters/limits, 404s), repeated operations append-only (including pinned reprocess: no `Failed` run, history still resolvable), 16 tables + `PRAGMA foreign_key_check` clean, three demo scenarios (quiet normal / compromise links / ransomware-like rules with honest ML abstention), banned-phrase harvest over 139 captured responses empty, performance timings informational (§16).
+3. **UI status copy corrected.** Landing roadmap marks Phases 2–4 `done`, badge reads `PHASES 0–4 · CORE PIPELINE`, the status paragraph matches the implemented surface, and the app-shell footer says Phase 4.
+4. **Finding paths corrected in docs.** Finding detail, trace, and PATCH are case-scoped (`/api/cases/{case_id}/findings/{finding_id}…`); investigator notes are embedded in the finding detail response (no standalone notes endpoint). §15 and the README API table were corrected accordingly.
+5. **Known limitations carried forward.** Fusion still uses the Phase 3 proxy (§9.3, §24 item 8); timeline phase segmentation and per-entry raw-record IDs remain deferred (§24 item 4).

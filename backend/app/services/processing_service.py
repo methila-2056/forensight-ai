@@ -14,6 +14,10 @@ Guarantees:
 * every normalized event links to its RawRecord and Evidence (SHA-256)
 * run status never claims Completed when records were rejected (Partial)
   or processing failed (Failed)
+* derived events that preserved history references (correlation links,
+  finding/group event references) are never replaced: the rebuild is
+  skipped for that evidence and the run carries an explanatory warning,
+  so append-only history keeps pointing at real events
 
 Evidence content is treated strictly as data — never executed, never
 interpreted as instructions, never passed to a shell.
@@ -24,7 +28,7 @@ from __future__ import annotations
 import hashlib
 import logging
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app import config
@@ -32,13 +36,17 @@ from app.engines.parsing import UnknownFormatError, parse_evidence
 from app.errors import ApiError
 from app.models import (
     Case,
+    Correlation,
     CustodyAction,
     Evidence,
     EvidenceStatus,
     ForensicEvent,
+    InvestigationGroup,
+    MlFinding,
     ProcessingRun,
     ProcessingStatus,
     RawRecord,
+    RuleFinding,
     SeverityLevel,
     SourceType,
     utcnow,
@@ -88,6 +96,79 @@ def _dedupe_hash(common: dict) -> str:
             value = value.isoformat()
         parts.append("" if value is None else str(value))
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def _history_pins_events(db: Session, *, case: Case, evidence: Evidence) -> str | None:
+    """Reason preserved history forbids replacing this evidence's events, or None.
+
+    Reprocessing rebuilds derived rows, but downstream history is append-only
+    and points at specific events: correlation links hold a foreign key to the
+    event rows, and stored findings/groups hold event-uid lists used for
+    traceability. Replacing those events would either violate the foreign key
+    or silently break the recorded chain of references, so the rebuild must be
+    skipped for evidence whose events are already referenced.
+    """
+    event_ids = list(
+        db.scalars(
+            select(ForensicEvent.id).where(ForensicEvent.evidence_id == evidence.id)
+        )
+    )
+    if not event_ids:
+        return None
+
+    linked = db.scalar(
+        select(func.count())
+        .select_from(Correlation)
+        .where(
+            or_(
+                Correlation.event_a_id.in_(event_ids),
+                Correlation.event_b_id.in_(event_ids),
+            )
+        )
+    )
+    if linked:
+        return (
+            f"rebuild skipped: {linked} preserved correlation link(s) reference "
+            "these events (append-only history keeps the existing rows)"
+        )
+
+    event_uids = set(
+        db.scalars(
+            select(ForensicEvent.event_uid).where(ForensicEvent.id.in_(event_ids))
+        )
+    )
+    checks = (
+        (
+            db.scalars(
+                select(RuleFinding.triggered_event_ids).where(
+                    RuleFinding.case_id == case.id
+                )
+            ),
+            "finding",
+        ),
+        (
+            db.scalars(
+                select(MlFinding.event_ids).where(MlFinding.case_id == case.id)
+            ),
+            "finding",
+        ),
+        (
+            db.scalars(
+                select(InvestigationGroup.member_event_ids).where(
+                    InvestigationGroup.case_id == case.id
+                )
+            ),
+            "activity group",
+        ),
+    )
+    for stored_rows, label in checks:
+        for stored in stored_rows:
+            if event_uids & set(stored or []):
+                return (
+                    f"rebuild skipped: a preserved {label} references these events "
+                    "(append-only history keeps the existing rows)"
+                )
+    return None
 
 
 def process_evidence(
@@ -160,10 +241,17 @@ def process_evidence(
         warnings.extend(outcome.warnings)
         run.parser = f"{outcome.parser_name}/{outcome.source_type}"
 
-        # Reprocessing replaces derived rows for this evidence only.
-        db.execute(delete(ForensicEvent).where(ForensicEvent.evidence_id == evidence.id))
-        db.execute(delete(RawRecord).where(RawRecord.evidence_id == evidence.id))
-        db.flush()
+        # Reprocessing replaces derived rows for this evidence only — unless
+        # preserved history still references the existing events, in which
+        # case the rows are kept and the run explains why (see helper).
+        pin_reason = _history_pins_events(db, case=case, evidence=evidence)
+        rebuild = pin_reason is None
+        if rebuild:
+            db.execute(delete(ForensicEvent).where(ForensicEvent.evidence_id == evidence.id))
+            db.execute(delete(RawRecord).where(RawRecord.evidence_id == evidence.id))
+            db.flush()
+        elif pin_reason:
+            warnings.append(pin_reason)
 
         event_counter = _first_event_uid(db)
         seen: dict[str, str] = {}
@@ -173,38 +261,31 @@ def process_evidence(
 
             if record.parse_error:
                 counts["records_rejected"] += 1
-                db.add(
-                    RawRecord(
-                        evidence_id=evidence.id,
-                        row_index=record.row_index,
-                        content=record.raw,
-                        reject_reason=record.parse_error,
+                if rebuild:
+                    db.add(
+                        RawRecord(
+                            evidence_id=evidence.id,
+                            row_index=record.row_index,
+                            content=record.raw,
+                            reject_reason=record.parse_error,
+                        )
                     )
-                )
                 continue
 
             counts["records_parsed"] += 1
             mapped = outcome.normalizer.normalize(record.fields, record.row_index)
             if mapped.reject_reason:
                 counts["records_rejected"] += 1
-                db.add(
-                    RawRecord(
-                        evidence_id=evidence.id,
-                        row_index=record.row_index,
-                        content=record.raw,
-                        reject_reason=mapped.reject_reason,
+                if rebuild:
+                    db.add(
+                        RawRecord(
+                            evidence_id=evidence.id,
+                            row_index=record.row_index,
+                            content=record.raw,
+                            reject_reason=mapped.reject_reason,
+                        )
                     )
-                )
                 continue
-
-            raw_record = RawRecord(
-                evidence_id=evidence.id,
-                row_index=record.row_index,
-                content=record.raw,
-                reject_reason=None,
-            )
-            db.add(raw_record)
-            db.flush()
 
             dedupe = _dedupe_hash(mapped.common)
             metadata = dict(mapped.metadata)
@@ -220,6 +301,19 @@ def process_evidence(
             event_counter += 1
             event_uid = f"EVT-{event_counter:06d}"
             seen.setdefault(dedupe, event_uid)
+            counts["records_normalized"] += 1
+
+            if not rebuild:
+                continue
+
+            raw_record = RawRecord(
+                evidence_id=evidence.id,
+                row_index=record.row_index,
+                content=record.raw,
+                reject_reason=None,
+            )
+            db.add(raw_record)
+            db.flush()
 
             severity = mapped.common.get("severity")
             db.add(
@@ -244,7 +338,6 @@ def process_evidence(
                     dedupe_hash=dedupe,
                 )
             )
-            counts["records_normalized"] += 1
 
         truncated = any(warning.startswith("record limit") for warning in warnings)
         if counts["records_rejected"] > 0 or counts["records_received"] == 0 or truncated:

@@ -1,6 +1,6 @@
 """Write-once raw evidence store (Phase 0 stub).
 
-Design rules from Architecture v1.1 §Evidence Integrity / §Raw Evidence:
+Design rules from Architecture §7 / §8:
 
 * Raw evidence bytes are written EXACTLY ONCE at ingest.
 * The application never rewrites, normalizes in place, truncates, or

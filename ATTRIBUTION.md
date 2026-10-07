@@ -13,8 +13,8 @@ original implementation.
 - Multi-format timestamp engine (ISO/Apache/US/epoch, timezone assumptions documented, never-invent rejections)
 - Format-detection registry (extension + content + columns + declared type, unknown-format errors)
 - Processing-run log design with status semantics, record cap, and duplicate marking (`duplicate_of`, originals never altered)
-- Rule engine definitions (RULE-001 … RULE-008) and their explanations
-- Feature engineering, anomaly-scoring pipeline, fusion scoring, and run metadata design
+- Rule engine definitions (AUTH-001/002/003, PROC-001, FILE-001/002, NET-001) and their explanations
+- Window feature engineering, Strategy A anomaly-scoring pipeline (dual detection gate, abstention), fusion scoring, and run metadata design
 - Multi-source correlation logic with per-link reasons and chain assembly
 - Reconstructed timeline construction and evidence-graph generation
 - Deterministic retrieval-first investigator assistant
@@ -36,6 +36,8 @@ cloned. Dependencies below are used as libraries only.
 | SQLAlchemy | MIT | ORM and schema definitions |
 | python-dotenv | BSD-3-Clause | Loads `.env` configuration |
 | python-multipart | Apache-2.0 | Multipart form parsing for evidence upload |
+| NumPy | BSD-3-Clause | Numerical arrays for feature/scoring pipelines |
+| scikit-learn | BSD-3-Clause | IsolationForest anomaly detection (window scoring, seeded, deterministic) |
 | pytest | MIT | Test framework |
 | httpx | BSD-3-Clause | Test client transport for FastAPI tests |
 
@@ -43,8 +45,7 @@ License identifiers above were read from the installed package metadata /
 bundled LICENSE files of the exact versions in `backend/requirements*.txt`.
 
 Planned for later phases (declared now, used when those phases land):
-scikit-learn (BSD-3-Clause), pandas (BSD-3-Clause), numpy (BSD-3-Clause),
-reportlab (BSD-3-Clause) for reports.
+pandas (BSD-3-Clause), reportlab (BSD-3-Clause) for reports.
 
 ## Frontend dependencies (`frontend/package.json`)
 
@@ -56,8 +57,8 @@ reportlab (BSD-3-Clause) for reports.
 | @vitejs/plugin-react | MIT | React support for Vite |
 | Tailwind CSS, @tailwindcss/vite | MIT | Styling |
 | react-router-dom | MIT | Client-side routing for case/evidence pages |
-| Recharts (planned, Phase 5+) | MIT | Charts |
-| React Flow / reactflow (planned, Phase 5+) | MIT | Evidence graph |
+| Recharts (planned, Phase 5) | MIT | Charts |
+| React Flow / reactflow (Phase 4) | MIT | Evidence graph |
 
 Exact installed versions are recorded in `frontend/package-lock.json`.
 

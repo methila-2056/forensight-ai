@@ -43,6 +43,30 @@ export const FUSION_DISCLAIMER =
 
 export const SYNTHETIC_DATA_LABEL = "Trained and evaluated on synthetic demonstration data.";
 
+// ---------------------------------------------------------------------------
+// Automated analysis (Phase 3) — mirror of backend/app/terminology.py
+// ---------------------------------------------------------------------------
+
+export const ANALYSIS_RUN_LABEL = "Automated Analysis Run";
+
+export const ANALYSIS_SCOPE_NOTE =
+  "Analysis is limited to the normalized forensic events of this case. " +
+  "Rule detections and ML anomaly scores are statistical observations that " +
+  "require investigator review.";
+
+export const ANALYSIS_NO_EVENTS = "No normalized forensic events available for analysis.";
+
+export const ML_ABSTAIN_NOTE =
+  "Too few event windows for a meaningful ML comparison - anomaly detection " +
+  "abstained and no ML finding was created for this run.";
+
+export const ANOMALY_SCORE_DESCRIPTION =
+  "Normalized to [0, 1] over this case's event windows; a higher value " +
+  "indicates greater statistical deviation from the case's typical pattern.";
+
+export const RULE_CONFIDENCE_NOTE =
+  "Rule confidence is a fixed deterministic indicator weight, not a probability.";
+
 export const TIMELINE_LABEL = "Reconstructed Investigation Timeline";
 export const TIMELINE_DISCLAIMER =
   "A reconstruction derived from the evidence available in this case. " +
@@ -51,6 +75,19 @@ export const TIMELINE_DISCLAIMER =
 export const CORRELATION_DISCLAIMER =
   "Correlation indicates co-occurrence and shared context, not causation. " +
   "Requires investigator validation.";
+
+// ---------------------------------------------------------------------------
+// Correlation / activity groups / timeline (Phase 4) — mirrors backend/app/terminology.py
+// ---------------------------------------------------------------------------
+
+export const CORRELATION_RUN_LABEL = "Correlation Run";
+
+export const CORRELATION_NO_EVENTS =
+  "No normalized forensic events available for correlation.";
+
+export const CORRELATION_GROUP_NOTE =
+  "Activity groups are built from reason-tagged correlations between real " +
+  "events of this case - no inferred or merged entities.";
 
 export const INSUFFICIENT_EVIDENCE = "Insufficient evidence in the current case.";
 export const PLANNED_LABEL = "Prototype / Planned";
