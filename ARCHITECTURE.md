@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.8
+# FORENSIGHT AI — Architecture v1.9
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0–6 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
+Status: Phases 0–7 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -89,7 +89,7 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | 10 | Evidence graph | `engines/graph` + React Flow | Secondary |
 | 11 | Investigator assistant | `engines/assistant` (deterministic) | Secondary |
 | 12 | Explainability | finding `reasons` payloads | Core (with 6/7) |
-| 13 | Dashboard | stats aggregation | Core |
+| 13 | Dashboard | `services/dashboard_service`, `dashboard` (read-only `GET /api/dashboard`) | Core (implemented, Phase 7) |
 | 14 | Report generation (immutable JSON snapshots + print UI) | `services/report_service` | Secondary (implemented, Phase 6) |
 | — | Segment-level classifier | `engines/ml/classifier` | Secondary |
 | — | Investigator notes | `investigator_notes` | Secondary |
@@ -361,6 +361,12 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/api/cases/{case_id}/reports/{report_id}` | One report with its 15 deterministic sections (404 `REPORT_NOT_FOUND` if not in this case) |
 | GET | `/api/cases/{case_id}/reports/{report_id}/json` | The raw stored snapshot `{metadata, sections}` (cached JSON, unchanged since generation) |
 
+**Implemented (Phase 7):**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/dashboard` | Read-only scenario statistics: global totals, finding breakdowns (kind/severity/status), ML run stats, integrity, custody, processing, run summaries, and per-case KPIs — all pure aggregates of persisted rows, demo-flagged cases labelled `DEMO_LABEL` |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
@@ -384,6 +390,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 - **End-to-end:** demo load → verify → process → analyze → correlate → timeline → graph → assistant → report; asserts Scenario A quiet / C fires; raw hashes unchanged after pipeline; banned terms absent from UI strings.
 - **Regression gate every phase:** `pytest` green + `npm run build` green.
 - **Phase 6 report gate:** a fresh-temp-database script that drives the report endpoints over a real pipeline (empty-case contract, evidence-backed content, generation determinism + snapshot immutability, cross-case isolation and malformed-ID traversal, read-only generation, custody + global `RPT-` sequence, corruption → `INTEGRITY MISMATCH` verdict, synthetic demo marker, and a wording-honesty sweep over every captured report body).
+- **Dashboard (Phase 7):** 6 tests asserting every global and per-case figure equals the persisted-row counts cross-checked directly against the DB, an empty/no-pipeline case reports explicit zeros, the full pipeline aggregates match persisted deltas, demo-marked and raw-record-marker cases expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`), and the endpoint itself is read-only (row counts byte-unchanged).
 - **Phase 4.5 core gate:** a fresh-temp-database end-to-end script that drives every API route (upload → verify → process → analyze → correlate → timeline → graph → review → re-run), checks raw-hash immutability (pre == recorded == post), finding/timeline/graph traceability chains, repeatability across two identical pipelines, empty/error/422/404/409 envelopes, append-only history on repeated operations, SQLite table/FK integrity (`PRAGMA foreign_key_check`), the three demo scenarios with honest ML abstention, a terminology harvest over every captured response, and informational performance timings.
 
 ## 18. Risks and limitations
@@ -413,7 +420,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged — **DONE** |
 | **5** | **Investigation assistant** (deterministic, retrieval-first) | example questions answered from evidence; cross-case isolation — **DONE** |
 | **6** | **Investigation report layer** (immutable JSON snapshots + print UI) | deterministic 15-section report, snapshots immutable, global sequence, cross-case 404, custody — **DONE** |
-| 7 | Dashboard | scenario stats |
+| **7** | **Dashboard** (read-only scenario statistics + per-case KPIs) | figures equal persisted rows, demo-cases labelled `DEMO_LABEL`, read-only guarantee — **DONE** |
 | 8 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
 | 9 | Notes (investigator annotations) | persisted annotations in the findings UI |
 | 10 | Demo loader + polish + history | evaluator journey works end-to-end |
@@ -534,6 +541,21 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 12 | Regression gate: `pytest` green (253 tests) + `npm run build` green + fresh-database `gate_phase6.py` (104 checks) green; docs updated to v1.8; banned terms absent from constants and docs | ✅ |
 | 13 | No new third-party dependencies added in Phase 6 (frontend print uses the browser; backend uses stdlib + existing stack) | ✅ |
 
+### Phase 7 acceptance criteria — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | `GET /api/dashboard` returns read-only scenario statistics (`DashboardResponse`): global totals, finding breakdowns (kind/severity/status), ML run stats, integrity, custody, processing, run summaries, and per-case KPIs | ✅ |
+| 2 | Every figure is a **pure aggregate of rows already persisted by Phases 1–6** — no file writes, no new analysis, no fabricated numbers; endpoint is read-only (row counts byte-unchanged) | ✅ |
+| 3 | Per-case KPIs are scoped per case (evidence/events/anomalous events/runs/records/findings/confirmed/correlations/groups/integrity/reports/custody/assistant queries/last activity) | ✅ |
+| 4 | Demo-flagged cases and cases containing a raw-record demonstration marker expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`); real cases show no synthetic label | ✅ |
+| 5 | Breakdowns use explicit zero-filled keys (severity/status/processing/run enums) so the frontend never invents categories | ✅ |
+| 6 | UI: `/dashboard` page with stat cards, breakdown panels, per-case KPI table (synthetic-label badge, case link, `formatDateTime`), loading/error states consistent with existing pages | ✅ |
+| 7 | Nav includes **Dashboard**; footer + Landing roadmap mark Phase 7 done | ✅ |
+| 8 | Tests: 6 dashboard tests in `backend/tests/test_dashboard.py` (backend suite now **259 passed**) | ✅ |
+| 9 | Regression gate: `pytest` green (259 tests) + `npm run build` green + Phase 6 gate (`gate_phase6.py`) re-run green; docs updated to v1.9; banned terms absent from constants and docs | ✅ |
+| 10 | No new third-party dependencies added in Phase 7 (no charting library; markup/Tailwind only) | ✅ |
+
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 
 1. **Integrity terminology.** SHA-256 is described only as recording and verifying *file integrity*. `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` mean byte-level match/mismatch with the recorded hash. A standing disclaimer states that hashing does not establish who created or collected a file. Naming is *Evidence Integrity Verification* everywhere (module, page, endpoints `/verify`, `/integrity-test`).
@@ -612,3 +634,10 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 4. **Integrity + honesty wording.** Report integrity section resolves the latest `IntegrityCheck` per evidence (checked-at desc, id desc) into VERIFIED / MISMATCH / NOT VERIFIED / NO CHECK AVAILABLE; conclusion section picks no-analysis / insufficient / no-findings / with- or no-correlation (+ high-severity note). ML statements repeat the statistical-deviation disclaimer, abstention is reported honestly, demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker, and a guard asserts no authenticity/admissibility/probability claims in any captured report body.
 5. **UI.** `ReportListPage` (`/cases/{case_id}/reports`) and `ReportDetailPage` (`/cases/{case_id}/reports/{report_id}`) with a generic section renderer (field blocks, key/value grids, object-row tables, truncated hashes), a case-page *Investigation reports* section, and a **Print report** button backed by a dedicated `@media print` stylesheet (`#root` forced white, `.print-hide` chrome removed, `break-inside: avoid`). No `dangerouslySetInnerHTML` and no new frontend dependencies.
 6. **Tests + gate.** `backend/tests/test_reports.py` — 23 new tests (backend suite now **253 passed**); fresh-temp-database `gate_phase6.py` run — **104 checks** passing (empty-case contract, evidence-backed content, determinism + snapshot immutability, scoping/404/caps, read-only generation, custody + global sequence, corruption → `INTEGRITY MISMATCH`, synthetic marker, wording bans). `npm run build` green, `test_terminology` green, docs at v1.8.
+
+## 28. Changelog — v1.8 → v1.9 additions (Phase 7 — Dashboard)
+
+1. **Dashboard backend.** New `services/dashboard_service.py` + `routers/dashboard.py` (`GET /api/dashboard`, tagged `dashboard`) returning `DashboardResponse`: global `totals` (16 counts), `findings` (kind/severity/status + total), `ml` (completed runs, windows, flagged, abstained, ml findings), `integrity` (checks/verified/mismatch), `custody` (events + by_action), `processing` (runs/records/status), `runs` (analysis + correlation by status), and `cases[]` per-case KPIs. Aggregation is **read-only** — only `SELECT` runs, no file writes, no analysis execution, no fabricated figures. ML windows/abstention come from the latest completed `InvestigationRun.stats` (`windows_total`/`windows_flagged`/`abstained`); `ClassifierResult` is untouched.
+2. **Synthetic labelling.** Cases with `demo=True` and cases whose raw records carry the demonstration marker expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`); real cases expose `null`.
+3. **Frontend.** `/dashboard` page (`DashboardPage.tsx`) with totals stat cards, finding/processing/run/integrity/ML/custody breakdown panels, and a per-case KPI table (synthetic-label badge, case links, `formatDateTime`). New `api/dashboard.ts`, dashboard DTOs in `types/models.ts`, `DASHBOARD_LABEL`/`DASHBOARD_NOTE`/`DASHBOARD_KPI_LABEL` in both terminology modules. `Dashboard` nav link; Landing roadmap + footer mark Phase 7 done.
+4. **Tests + gate.** `backend/tests/test_dashboard.py` — 6 new tests (backend suite now **259 passed**) cross-checking every figure against direct DB counts, empty/no-pipeline zeros, full-pipeline persisted deltas, both synthetic-label paths, and read-only guarantee. `npm run build` green, `test_terminology` green, `gate_phase6.py` re-run green (104 checks), docs at v1.9. No new third-party dependencies (no charting library).

@@ -94,6 +94,19 @@ export const INSUFFICIENT_EVIDENCE = "Insufficient evidence in the current case.
 export const PLANNED_LABEL = "Prototype / Planned";
 export const DEMO_LABEL = "SYNTHETIC / DEMONSTRATION DATA";
 
+// ---------------------------------------------------------------------------
+// Dashboard (Phase 7) — read-only scenario statistics
+// ---------------------------------------------------------------------------
+
+export const DASHBOARD_LABEL = "Scenario Statistics";
+
+export const DASHBOARD_NOTE =
+  "Dashboard figures are read-only aggregates of the data already persisted " +
+  "by the analysis phases. They are counts and sums of stored rows, not new " +
+  "analysis, and require investigator review.";
+
+export const DASHBOARD_KPI_LABEL = "Per-case overview";
+
 export const ASSISTANT_FOOTER =
   "Answers are constructed only from processed case evidence. No generative model is enabled.";
 

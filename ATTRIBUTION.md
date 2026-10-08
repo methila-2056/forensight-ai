@@ -19,6 +19,7 @@ original implementation.
 - Reconstructed timeline construction and evidence-graph generation
 - Deterministic retrieval-first investigator assistant
 - Immutable investigation report layer (deterministic 15-section JSON snapshots, global `RPT-` sequence, custody, printable UI)
+- Read-only scenario-statistics dashboard (global totals, finding/ML/integrity/custody/processing/run breakdowns, per-case KPIs, demo-case synthetic labelling)
 - Traceability ladder (Finding → Reason → Forensic Event → Raw Record → Evidence File → Recorded SHA-256)
 - Synthetic demo scenario generators and the report builder
 - All UI/UX, tests, and documentation
@@ -48,7 +49,8 @@ bundled LICENSE files of the exact versions in `backend/requirements*.txt`.
 Planned for later phases (declared now, used when those phases land):
 pandas (BSD-3-Clause) for the segment-level classifier. The report layer is
 implemented with the existing stack (JSON snapshots + browser print), so no
-report library (e.g. reportlab) was needed.
+report library (e.g. reportlab) was needed. Phase 7 (dashboard) adds no new
+dependencies — the page is rendered with markup + Tailwind only.
 
 ## Frontend dependencies (`frontend/package.json`)
 

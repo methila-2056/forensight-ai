@@ -614,6 +614,133 @@ class ReportResponse(ReportSummary):
 
 
 # ---------------------------------------------------------------------------
+# Dashboard (Phase 7) — read-only scenario statistics
+# ---------------------------------------------------------------------------
+
+class DashboardTotals(BaseModel):
+    """Cross-case totals (aggregated persisted rows only; never inferred)."""
+
+    cases: int
+    evidence: int
+    raw_records: int
+    forensic_events: int
+    processing_runs: int
+    analysis_runs: int
+    correlation_runs: int
+    correlations: int
+    investigation_groups: int
+    integrity_checks: int
+    custody_events: int
+    rule_findings: int
+    ml_findings: int
+    assistant_queries: int
+    investigation_reports: int
+    investigator_notes: int
+
+
+class FindingBreakdown(BaseModel):
+    """Finding aggregates by kind, severity, and review status."""
+
+    by_kind: dict[str, int]
+    by_severity: dict[str, int]
+    by_status: dict[str, int]
+    total: int
+
+
+class MlSummary(BaseModel):
+    """Persisted ML run statistics (analyze-stage completed runs only)."""
+
+    completed_runs: int
+    windows_total: int
+    windows_flagged: int
+    abstained_runs: int
+    ml_findings: int
+
+
+class IntegritySummary(BaseModel):
+    """Integrity-check outcomes across all evidence."""
+
+    checks: int
+    verified: int
+    mismatch: int
+
+
+class CustodySummary(BaseModel):
+    """Chain-of-custody event totals by recorded action."""
+
+    events: int
+    by_action: dict[str, int]
+
+
+class ProcessingSummary(BaseModel):
+    """Processing-run totals and record counts, grouped by status."""
+
+    runs: int
+    records_received: int
+    records_normalized: int
+    records_rejected: int
+    duplicates_detected: int
+    by_status: dict[str, int]
+
+
+class RunSummary(BaseModel):
+    """Run-status groupings abstracted from persisted run rows."""
+
+    analysis_by_status: dict[str, int]
+    correlation_by_status: dict[str, int]
+
+
+class CaseKpi(BaseModel):
+    """Per-case key performance indicator summary (aggregated persisted data)."""
+
+    case_id: str
+    name: str
+    investigator: str
+    status: CaseStatus
+    severity: SeverityLevel
+    created_at: datetime
+    last_activity: datetime
+    demo: bool
+    synthetic_label: Optional[str] = None
+    evidence_count: int
+    event_count: int
+    anomalous_event_count: int
+    processing_runs: int
+    records_normalized: int
+    records_rejected: int
+    rule_findings: int
+    ml_findings: int
+    confirmed_findings: int
+    correlations: int
+    activity_groups: int
+    integrity_checks: int
+    integrity_verified: int
+    integrity_mismatch: int
+    reports: int
+    custody_events: int
+    assistant_queries: int
+
+
+class DashboardResponse(BaseModel):
+    """Read-only scenario statistics snapshot.
+
+    Every figure is an aggregate (count, sum, or grouping) of rows already
+    persisted by Phases 1–6. The dashboard performs no analysis and no writes,
+    and absent data is reported as zero — no figure is ever fabricated.
+    """
+
+    generated_at: datetime
+    totals: DashboardTotals
+    findings: FindingBreakdown
+    ml: MlSummary
+    integrity: IntegritySummary
+    custody: CustodySummary
+    processing: ProcessingSummary
+    runs: RunSummary
+    cases: list[CaseKpi]
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 

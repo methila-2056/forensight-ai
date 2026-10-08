@@ -4,6 +4,7 @@ import AssistantPage from "./pages/AssistantPage";
 import CaseDetailPage from "./pages/CaseDetailPage";
 import CaseListPage from "./pages/CaseListPage";
 import CreateCasePage from "./pages/CreateCasePage";
+import DashboardPage from "./pages/DashboardPage";
 import EventsPage from "./pages/EventsPage";
 import FindingDetailPage from "./pages/FindingDetailPage";
 import FindingsPage from "./pages/FindingsPage";
@@ -18,6 +19,7 @@ export default function App(): JSX.Element {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/cases" element={<CaseListPage />} />
           <Route path="/cases/new" element={<CreateCasePage />} />
           <Route path="/cases/:caseId/events" element={<EventsPage />} />

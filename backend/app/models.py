@@ -1,4 +1,4 @@
-"""SQLAlchemy models — schema per Architecture v1.8 (Phases 0–6).
+"""SQLAlchemy models — schema per Architecture v1.9 (Phases 0–7).
 
 Table list:
 cases, evidence, integrity_checks, chain_of_custody, raw_records,

@@ -27,6 +27,9 @@ export default function AppShell(): JSX.Element {
             <NavLink to="/" end className={linkClass}>
               Overview
             </NavLink>
+            <NavLink to="/dashboard" className={linkClass}>
+              Dashboard
+            </NavLink>
             <NavLink to="/cases" className={linkClass}>
               Cases
             </NavLink>
@@ -47,7 +50,7 @@ export default function AppShell(): JSX.Element {
       </main>
 
       <footer className="print-hide border-t border-slate-800 px-6 py-4 text-center font-mono text-[10px] uppercase tracking-widest text-slate-600">
-        {PRODUCT_NAME} · Phase 6 · SUTRAM 2026 · Findings from rules and anomaly scores are
+        {PRODUCT_NAME} · Phase 7 · SUTRAM 2026 · Findings from rules and anomaly scores are
         statistical observations — they require investigator validation
       </footer>
     </div>

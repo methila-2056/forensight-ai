@@ -5,7 +5,7 @@ SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital F
 
 > FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, maintains traceability from findings back to source evidence, and produces immutable, evidence-backed investigation reports.
 
-**Current status:** Phases 0–6 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model), and an **investigation report layer** (deterministic 15-section evidence-backed snapshots, immutable and case-scoped, print UI) implemented (backend + UI). The Phase 4.5 gate, the Phase 5 assistant gate, and the Phase 6 report gate (all fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: dashboard, segment classifier metrics, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phases 0–7 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model), an **investigation report layer** (deterministic 15-section evidence-backed snapshots, immutable and case-scoped, print UI), and a **read-only scenario-statistics dashboard** (global totals, finding/ML/integrity/custody/processing/run breakdowns, per-case KPIs; demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker) implemented (backend + UI). The Phase 4.5 gate, the Phase 5 assistant gate, and the Phase 6 report gate (all fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: segment classifier metrics, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -38,7 +38,7 @@ Finding → Reason → Forensic Event → Raw Record → Evidence File → Recor
 
 The chain is visible in the UI, in assistant answers, and in the generated report. This is the project's central claim: **evidence-traceable AI-assisted forensic investigation**.
 
-## Scope (per Architecture v1.8)
+## Scope (per Architecture v1.9)
 
 **MUST-HAVE CORE** — case management · evidence upload · SHA-256 integrity verification · evidence metadata · parsing · normalization · rule engine · ML anomaly detection · multi-source correlation · timeline reconstruction · evidence traceability · basic dashboard · demo scenario.
 
@@ -112,7 +112,7 @@ python -m pytest tests/test_terminology.py -v
 
 The suite includes a terminology guard: banned phrases may not appear in the terminology constants, `README.md`, `ARCHITECTURE.md`, or `ATTRIBUTION.md`.
 
-## API (Phases 1–3)
+## API (Phases 1–3, 7)
 
 | Method | Path | Description |
 |---|---|---|
@@ -184,6 +184,12 @@ Phase 6 — investigation report layer (immutable, evidence-backed snapshots):
 | GET | `/api/cases/{case_id}/reports/{report_id}` | One report with its sections (404 `REPORT_NOT_FOUND` outside the owning case) |
 | GET | `/api/cases/{case_id}/reports/{report_id}/json` | Raw stored snapshot `{metadata, sections}`, unchanged since generation |
 
+Phase 7 — dashboard (read-only scenario statistics):
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/dashboard` | Global totals, finding/ML/integrity/custody/processing/run breakdowns, and per-case KPIs — pure aggregates of persisted rows; demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker |
+
 Reports are read-only, case-scoped snapshots: ID `RPT-{n:06d}` comes from a global sequence, each generation records `Report Generated` custody, and re-generating never rewrites an earlier snapshot.
 
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
@@ -200,7 +206,7 @@ Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.
 | 4.5 | **Core acceptance gate** (end-to-end core pipeline) | Core |
 | 5 | **Investigation assistant** — deterministic, retrieval-first, case-scoped | Secondary |
 | 6 | **Investigation report layer** — immutable evidence-backed snapshots + print UI | Secondary |
-| 7 | Dashboard | Secondary |
+| 7 | Dashboard — read-only scenario statistics + per-case KPIs | Secondary |
 | 8 | Segment classifier metrics | Secondary |
 | 9 | Notes (investigator annotations) | Secondary |
 | 10 | One-click demo case + polish | Core polish |

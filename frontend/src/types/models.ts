@@ -739,3 +739,107 @@ export interface ReportRawJson {
   metadata: Record<string, unknown>;
   sections: Record<ReportSectionName, Record<string, unknown>>;
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard (Phase 7) — read-only scenario statistics
+// ---------------------------------------------------------------------------
+
+export interface DashboardTotals {
+  cases: number;
+  evidence: number;
+  raw_records: number;
+  forensic_events: number;
+  processing_runs: number;
+  analysis_runs: number;
+  correlation_runs: number;
+  correlations: number;
+  investigation_groups: number;
+  integrity_checks: number;
+  custody_events: number;
+  rule_findings: number;
+  ml_findings: number;
+  assistant_queries: number;
+  investigation_reports: number;
+  investigator_notes: number;
+}
+
+export interface FindingBreakdown {
+  by_kind: { rule: number; ml: number };
+  by_severity: Record<Severity, number>;
+  by_status: Record<FindingStatus, number>;
+  total: number;
+}
+
+export interface MlSummary {
+  completed_runs: number;
+  windows_total: number;
+  windows_flagged: number;
+  abstained_runs: number;
+  ml_findings: number;
+}
+
+export interface IntegritySummary {
+  checks: number;
+  verified: number;
+  mismatch: number;
+}
+
+export interface CustodySummary {
+  events: number;
+  by_action: Record<string, number>;
+}
+
+export interface ProcessingSummary {
+  runs: number;
+  records_received: number;
+  records_normalized: number;
+  records_rejected: number;
+  duplicates_detected: number;
+  by_status: Record<ProcessingStatus, number>;
+}
+
+export interface RunSummary {
+  analysis_by_status: Record<AnalysisRunStatus, number>;
+  correlation_by_status: Record<AnalysisRunStatus, number>;
+}
+
+export interface CaseKpi {
+  case_id: string;
+  name: string;
+  investigator: string;
+  status: CaseStatus;
+  severity: Severity;
+  created_at: string;
+  last_activity: string;
+  demo: boolean;
+  synthetic_label: string | null;
+  evidence_count: number;
+  event_count: number;
+  anomalous_event_count: number;
+  processing_runs: number;
+  records_normalized: number;
+  records_rejected: number;
+  rule_findings: number;
+  ml_findings: number;
+  confirmed_findings: number;
+  correlations: number;
+  activity_groups: number;
+  integrity_checks: number;
+  integrity_verified: number;
+  integrity_mismatch: number;
+  reports: number;
+  custody_events: number;
+  assistant_queries: number;
+}
+
+export interface DashboardData {
+  generated_at: string;
+  totals: DashboardTotals;
+  findings: FindingBreakdown;
+  ml: MlSummary;
+  integrity: IntegritySummary;
+  custody: CustodySummary;
+  processing: ProcessingSummary;
+  runs: RunSummary;
+  cases: CaseKpi[];
+}

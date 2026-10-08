@@ -190,6 +190,18 @@ PLANNED_LABEL = "Prototype / Planned"
 DEMO_LABEL = "SYNTHETIC / DEMONSTRATION DATA"
 
 # ---------------------------------------------------------------------------
+# Dashboard (Phase 7) — read-only scenario statistics
+# ---------------------------------------------------------------------------
+
+DASHBOARD_LABEL = "Scenario Statistics"
+DASHBOARD_NOTE = (
+    "Dashboard figures are read-only aggregates of the data already persisted "
+    "by the analysis phases. They are counts and sums of stored rows, not new "
+    "analysis, and require investigator review."
+)
+DASHBOARD_KPI_LABEL = "Per-case overview"
+
+# ---------------------------------------------------------------------------
 # Forensic reports (Phase 6) — evidence-backed presentation layer
 # ---------------------------------------------------------------------------
 
