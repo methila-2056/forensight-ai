@@ -202,6 +202,36 @@ DASHBOARD_NOTE = (
 DASHBOARD_KPI_LABEL = "Per-case overview"
 
 # ---------------------------------------------------------------------------
+# Investigation workspace (Phase 8) — read-only analyst console
+# ---------------------------------------------------------------------------
+
+WORKSPACE_LABEL = "Investigation Workspace"
+WORKSPACE_NOTE = (
+    "Workspace figures are read-only aggregates of the data already persisted "
+    "by the analysis phases and the assistant/report history of this case. "
+    "They are counts and re-shaped views of stored rows, not new analysis, "
+    "and require investigator review."
+)
+WORKSPACE_DISCLAIMER = (
+    "Read-only working console: every figure is drawn from data already "
+    "persisted for this case by Phases 1–7. No analysis is re-run and no "
+    "write happens while viewing the workspace."
+)
+
+# Processing rollup labels (persisted processing-runs only, never re-run).
+PROCESSING_NOT_PROCESSED = "Not processed"
+PROCESSING_IN_PROGRESS = "In progress"
+PROCESSING_PARTIAL = "Partial"
+PROCESSING_FAILED = "Failed"
+PROCESSING_COMPLETED = "Completed"
+
+# Evidence integrity rollup labels (latest check per evidence item).
+INTEGRITY_UNVERIFIED = "Unverified"
+INTEGRITY_PARTIAL = "Partially verified"
+INTEGRITY_LATEST_VERIFIED = "Verified"
+INTEGRITY_LATEST_MISMATCH = "Mismatch"
+
+# ---------------------------------------------------------------------------
 # Forensic reports (Phase 6) — evidence-backed presentation layer
 # ---------------------------------------------------------------------------
 

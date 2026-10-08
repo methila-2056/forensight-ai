@@ -5,7 +5,7 @@ SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital F
 
 > FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, maintains traceability from findings back to source evidence, and produces immutable, evidence-backed investigation reports.
 
-**Current status:** Phases 0–7 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model), an **investigation report layer** (deterministic 15-section evidence-backed snapshots, immutable and case-scoped, print UI), and a **read-only scenario-statistics dashboard** (global totals, finding/ML/integrity/custody/processing/run breakdowns, per-case KPIs; demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker) implemented (backend + UI). The Phase 4.5 gate, the Phase 5 assistant gate, and the Phase 6 report gate (all fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: segment classifier metrics, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phases 0–8 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model), an **investigation report layer** (deterministic 15-section evidence-backed snapshots, immutable and case-scoped, print UI), a **read-only scenario-statistics dashboard** (global totals, finding/ML/integrity/custody/processing/run breakdowns, per-case KPIs; demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker), and an **advanced analyst workspace** (read-only investigation console mixing overview, evidence, findings + review, timeline, correlations, activity groups, graph, assistant, and reports with deep links) implemented (backend + UI). The Phase 4.5 gate, the Phase 5 assistant gate, and the Phase 6 report gate (all fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: segment classifier metrics, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -38,11 +38,11 @@ Finding → Reason → Forensic Event → Raw Record → Evidence File → Recor
 
 The chain is visible in the UI, in assistant answers, and in the generated report. This is the project's central claim: **evidence-traceable AI-assisted forensic investigation**.
 
-## Scope (per Architecture v1.9)
+## Scope (per Architecture v1.10)
 
 **MUST-HAVE CORE** — case management · evidence upload · SHA-256 integrity verification · evidence metadata · parsing · normalization · rule engine · ML anomaly detection · multi-source correlation · timeline reconstruction · evidence traceability · basic dashboard · demo scenario.
 
-**SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · investigator notes · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)**.
+**SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)** · **advanced analyst workspace (read-only investigation console) — implemented (Phase 8)** · investigator notes.
 
 **STRETCH** — ZIP support · Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · Docker · advanced scalability.
 
@@ -60,8 +60,8 @@ forensight-ai/
 │   │   ├── main.py            # FastAPI app, OpenAPI, CORS, lifespan
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
-│   │   ├── routers/           # health, cases, evidence, processing, events, analysis, correlation, assistant, reports
-│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis, correlation, report
+│   │   ├── routers/           # health, cases, evidence, processing, events, analysis, correlation, assistant, reports, workspace
+│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis, correlation, report, workspace
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
 │   │   ├── security/uploads.py   # Phase 1: upload validation
 │   │   └── engines/           # parsing, rules, ml implemented; assistant/ implemented
@@ -112,7 +112,7 @@ python -m pytest tests/test_terminology.py -v
 
 The suite includes a terminology guard: banned phrases may not appear in the terminology constants, `README.md`, `ARCHITECTURE.md`, or `ATTRIBUTION.md`.
 
-## API (Phases 1–3, 7)
+## API (Phases 1–3, 7–8)
 
 | Method | Path | Description |
 |---|---|---|
@@ -192,6 +192,14 @@ Phase 7 — dashboard (read-only scenario statistics):
 
 Reports are read-only, case-scoped snapshots: ID `RPT-{n:06d}` comes from a global sequence, each generation records `Report Generated` custody, and re-generating never rewrites an earlier snapshot.
 
+Phase 8 — advanced analyst workspace (read-only investigation console):
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/cases/{case_id}/workspace` | One read-only workspace snapshot: case headline + processing/integrity rollups, evidence inventory with per-item integrity + processing, findings + open review queue, timeline/correlation/group/graph summaries, assistant history, report history — built only from rows persisted by Phases 1–6 (no analysis, correlation, assistant, or report runs; 404 `CASE_NOT_FOUND` outside the owning case) |
+
+Building the workspace performs only `SELECT`s — it never runs the pipeline, never writes, and every empty state is reported honestly (`Not processed` / `Unverified` / zero counts / empty lists). See the `/cases/{case_id}/workspace` page in the UI.
+
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
 
 ## Roadmap
@@ -207,10 +215,11 @@ Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.
 | 5 | **Investigation assistant** — deterministic, retrieval-first, case-scoped | Secondary |
 | 6 | **Investigation report layer** — immutable evidence-backed snapshots + print UI | Secondary |
 | 7 | Dashboard — read-only scenario statistics + per-case KPIs | Secondary |
-| 8 | Segment classifier metrics | Secondary |
-| 9 | Notes (investigator annotations) | Secondary |
-| 10 | One-click demo case + polish | Core polish |
-| 11 | Stretch items only if 0–10 are green | Stretch |
+| 8 | **Advanced analyst workspace** — read-only investigation console (overview, evidence, findings + review, timeline, correlations, groups, graph, assistant, reports; deep links) | Secondary |
+| 9 | Segment classifier metrics | Secondary |
+| 10 | Notes (investigator annotations) | Secondary |
+| 11 | One-click demo case + polish | Core polish |
+| 12 | Stretch items only if 0–11 are green | Stretch |
 
 ## Attribution
 

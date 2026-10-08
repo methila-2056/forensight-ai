@@ -9,6 +9,7 @@ import EventsPage from "./pages/EventsPage";
 import FindingDetailPage from "./pages/FindingDetailPage";
 import FindingsPage from "./pages/FindingsPage";
 import InvestigationPage from "./pages/InvestigationPage";
+import InvestigationWorkspacePage from "./pages/InvestigationWorkspacePage";
 import Landing from "./pages/Landing";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import ReportListPage from "./pages/ReportListPage";
@@ -31,6 +32,10 @@ export default function App(): JSX.Element {
           <Route
             path="/cases/:caseId/investigation"
             element={<InvestigationPage />}
+          />
+          <Route
+            path="/cases/:caseId/workspace"
+            element={<InvestigationWorkspacePage />}
           />
           <Route path="/cases/:caseId/assistant" element={<AssistantPage />} />
           <Route path="/cases/:caseId/reports" element={<ReportListPage />} />

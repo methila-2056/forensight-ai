@@ -741,6 +741,184 @@ class DashboardResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Investigation workspace (Phase 8) — read-only analyst console
+# ---------------------------------------------------------------------------
+
+class WorkspaceCaseSummary(BaseModel):
+    """Identity + headline counts of the case, all derived from persisted rows."""
+
+    case_id: str
+    name: str
+    investigator: str
+    status: CaseStatus
+    severity: SeverityLevel
+    description: str
+    created_at: datetime
+    last_activity: datetime
+    demo: bool
+    synthetic_label: Optional[str] = None
+    processing_status: str
+    integrity_status: str
+    evidence_count: int
+    event_count: int
+    anomalous_event_count: int
+    finding_count: int
+    review_open_items: int
+    correlation_count: int
+    activity_group_count: int
+    report_count: int
+
+
+class WorkspaceProcessingStatus(BaseModel):
+    """Rollup of the case's persisted processing runs (never re-processes)."""
+
+    label: str
+    runs: int
+    by_status: dict[str, int]
+    evidence_processed: int
+    records_received: int
+    records_parsed: int
+    records_normalized: int
+    records_rejected: int
+    duplicates_detected: int
+
+
+class WorkspaceEvidenceIntegrity(BaseModel):
+    """Integrity-check outcomes for one evidence item (persisted rows only)."""
+
+    checks: int = 0
+    verified: int = 0
+    mismatch: int = 0
+    latest: Optional[Literal["VERIFIED", "MISMATCH"]] = None
+
+
+class WorkspaceEvidenceItem(BaseModel):
+    """One evidence item of the case with its persisted processing/integrity."""
+
+    evidence_id: str
+    original_filename: str
+    evidence_type: EvidenceType
+    status: EvidenceStatus
+    source_description: str
+    file_size: int
+    sha256: str
+    uploaded_at: datetime
+    record_count: Optional[int] = None
+    parse_ok: Optional[int] = None
+    parse_rejected: Optional[int] = None
+    integrity: WorkspaceEvidenceIntegrity
+    latest_processing: Optional[str] = None
+    event_count: int = 0
+
+
+class WorkspaceEvidenceSummary(BaseModel):
+    """Case-wide evidence aggregates (counts and sums only)."""
+
+    total: int
+    processed: int
+    verified: int
+    mismatch: int
+    unverified: int
+    failed: int
+    total_bytes: int
+    by_type: dict[str, int]
+    by_status: dict[str, int]
+
+
+class WorkspaceIntegritySummary(BaseModel):
+    """Case-wide integrity-check totals across all evidence."""
+
+    checks: int
+    verified: int
+    mismatch: int
+
+
+class WorkspaceFindingItem(BaseModel):
+    """Compact finding entry (rule or ML) for the workspace queue."""
+
+    finding_id: str
+    kind: Literal["rule", "ml"]
+    rule_id: Optional[str] = None
+    model_name: Optional[str] = None
+    title: str
+    severity: SeverityLevel
+    status: FindingStatus
+    confidence: Optional[float] = None
+    anomaly_score: Optional[float] = None
+    threshold: Optional[float] = None
+    composite_suspicion_score: Optional[float] = None
+    explanation: Optional[Any] = None
+    reasons: Optional[list[str]] = None
+    event_ids: list[str] = []
+    evidence_ids: list[str] = []
+    timestamp_start: Optional[datetime] = None
+    timestamp_end: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkspaceFindingSummary(BaseModel):
+    """Case-wide finding breakdowns (rule + ML merged)."""
+
+    total: int
+    high_severity: int
+    by_kind: dict[str, int]
+    by_severity: dict[str, int]
+    by_status: dict[str, int]
+
+
+class WorkspaceReviewSummary(BaseModel):
+    """Investigator review state: open items and the review queue."""
+
+    total: int
+    open_items: int
+    by_status: dict[str, int]
+    queue: list[WorkspaceFindingItem] = []
+
+
+class WorkspaceAssistantSummary(BaseModel):
+    """Persisted assistant history for the case (append-only, bounded)."""
+
+    query_count: int
+    history: list[AssistantQueryResponse] = []
+
+
+class WorkspaceReportSummary(BaseModel):
+    """Latest report snapshot + bounded history (newest first)."""
+
+    count: int
+    latest: Optional[ReportSummary] = None
+    reports: list[ReportSummary] = []
+
+
+class WorkspaceResponse(BaseModel):
+    """Read-only investigation workspace snapshot for one case.
+
+    Every section reflects data already persisted by Phases 1–6. Building the
+    workspace never runs parsing, analysis, correlation, the assistant, or
+    report generation and never writes to the database — it only reads and
+    re-shapes stored rows. Absent data is reported as an empty/negative state,
+    never fabricated.
+    """
+
+    generated_at: datetime
+    disclaimer: str
+    case: WorkspaceCaseSummary
+    evidence_summary: WorkspaceEvidenceSummary
+    evidence: list[WorkspaceEvidenceItem] = []
+    processing: WorkspaceProcessingStatus
+    integrity_summary: WorkspaceIntegritySummary
+    finding_summary: WorkspaceFindingSummary
+    review_summary: WorkspaceReviewSummary
+    timeline_summary: TimelineResponse
+    correlation_summary: CorrelationListResponse
+    group_summary: GroupListResponse
+    graph_summary: GraphResponse
+    assistant_summary: WorkspaceAssistantSummary
+    report_summary: WorkspaceReportSummary
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 

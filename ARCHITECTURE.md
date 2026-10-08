@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.9
+# FORENSIGHT AI — Architecture v1.10
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0–7 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
+Status: Phases 0–8 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -46,8 +46,9 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 ┌──────────────────────────────────────────────────────────────┐
 │ FRONTEND — React + TypeScript + Vite + Tailwind              │
 │ Landing · Dashboard · Cases · Evidence · Integrity · Events  │
-│ Analysis · Findings · Timeline · Graph · Assistant · Report  │
-│ Recharts · React Flow                                        │
+│ Analysis · Findings · Timeline · Graph · Workspace ·         │
+│ Assistant · Report                                           │
+│ React Flow                                                   │
 └──────────────▲───────────────────────────────────────────────┘
                │ REST/JSON (typed DTOs)
 ┌──────────────┴───────────────────────────────────────────────┐
@@ -91,6 +92,7 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | 12 | Explainability | finding `reasons` payloads | Core (with 6/7) |
 | 13 | Dashboard | `services/dashboard_service`, `dashboard` (read-only `GET /api/dashboard`) | Core (implemented, Phase 7) |
 | 14 | Report generation (immutable JSON snapshots + print UI) | `services/report_service` | Secondary (implemented, Phase 6) |
+| 15 | Investigation workspace (read-only investigation console) | `services/workspace_service`, `workspace` (read-only `GET /api/cases/{id}/workspace`) | Secondary (implemented, Phase 8) |
 | — | Segment-level classifier | `engines/ml/classifier` | Secondary |
 | — | Investigator notes | `investigator_notes` | Secondary |
 
@@ -367,6 +369,12 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 |---|---|---|
 | GET | `/api/dashboard` | Read-only scenario statistics: global totals, finding breakdowns (kind/severity/status), ML run stats, integrity, custody, processing, run summaries, and per-case KPIs — all pure aggregates of persisted rows, demo-flagged cases labelled `DEMO_LABEL` |
 
+**Implemented (Phase 8):**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/cases/{case_id}/workspace` | Read-only investigation workspace snapshot for one case: `WorkspaceResponse` with `generated_at`, disclaimer, case headline, evidence summary/inventory, processing rollup, integrity rollup, finding + review summaries, timeline/correlation/group/graph summaries (reusing the Phase 4 shapes), assistant history, and report history — every section re-uses rows already persisted by Phases 1–6; building the workspace never runs parsing/analysis/correlation/assistant/report generation and never writes (404 `CASE_NOT_FOUND` for unknown cases; caps: 50 findings, 100 correlations, 100 groups, 10 assistant queries, 20 reports) |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
@@ -391,6 +399,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 - **Regression gate every phase:** `pytest` green + `npm run build` green.
 - **Phase 6 report gate:** a fresh-temp-database script that drives the report endpoints over a real pipeline (empty-case contract, evidence-backed content, generation determinism + snapshot immutability, cross-case isolation and malformed-ID traversal, read-only generation, custody + global `RPT-` sequence, corruption → `INTEGRITY MISMATCH` verdict, synthetic demo marker, and a wording-honesty sweep over every captured report body).
 - **Dashboard (Phase 7):** 6 tests asserting every global and per-case figure equals the persisted-row counts cross-checked directly against the DB, an empty/no-pipeline case reports explicit zeros, the full pipeline aggregates match persisted deltas, demo-marked and raw-record-marker cases expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`), and the endpoint itself is read-only (row counts byte-unchanged).
+- **Workspace (Phase 8):** 11 tests asserting the empty-case contract (`Not processed` / `Unverified` / zero counts / empty lists), the full-pipeline aggregate matches persisted rows (evidence inventory, integrity checks incl. injected `MISMATCH`, processing rollup, finding + review summaries, timeline/correlation/group/graph/assistant/report summaries from the Phase 4–6 services), the review queue reflects the persisted finding statuses, demo synthetic labelling, `404 CASE_NOT_FOUND`, the endpoint is read-only (DB row counts byte-unchanged), determinism (equal snapshots except `generated_at`), strict case isolation, and Phase 7 dashboard regression.
 - **Phase 4.5 core gate:** a fresh-temp-database end-to-end script that drives every API route (upload → verify → process → analyze → correlate → timeline → graph → review → re-run), checks raw-hash immutability (pre == recorded == post), finding/timeline/graph traceability chains, repeatability across two identical pipelines, empty/error/422/404/409 envelopes, append-only history on repeated operations, SQLite table/FK integrity (`PRAGMA foreign_key_check`), the three demo scenarios with honest ML abstention, a terminology harvest over every captured response, and informational performance timings.
 
 ## 18. Risks and limitations
@@ -421,10 +430,11 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | **5** | **Investigation assistant** (deterministic, retrieval-first) | example questions answered from evidence; cross-case isolation — **DONE** |
 | **6** | **Investigation report layer** (immutable JSON snapshots + print UI) | deterministic 15-section report, snapshots immutable, global sequence, cross-case 404, custody — **DONE** |
 | **7** | **Dashboard** (read-only scenario statistics + per-case KPIs) | figures equal persisted rows, demo-cases labelled `DEMO_LABEL`, read-only guarantee — **DONE** |
-| 8 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
-| 9 | Notes (investigator annotations) | persisted annotations in the findings UI |
-| 10 | Demo loader + polish + history | evaluator journey works end-to-end |
-| 11 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–10 green |
+| **8** | **Advanced analyst workspace** (read-only investigation console: tabs + deep links + React Flow graph + inline review / assistant / report) | snapshot equals persisted rows, read-only + deterministic (except `generated_at`), case-scoped, Phase 7 regression green — **DONE** |
+| 9 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
+| 10 | Notes (investigator annotations) | persisted annotations in the findings UI |
+| 11 | Demo loader + polish + history | evaluator journey works end-to-end |
+| 12 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–11 green |
 
 ## 20. Phase 0 acceptance criteria (all 12) — status
 
@@ -556,6 +566,23 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 9 | Regression gate: `pytest` green (259 tests) + `npm run build` green + Phase 6 gate (`gate_phase6.py`) re-run green; docs updated to v1.9; banned terms absent from constants and docs | ✅ |
 | 10 | No new third-party dependencies added in Phase 7 (no charting library; markup/Tailwind only) | ✅ |
 
+### Phase 8 acceptance criteria — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | `GET /api/cases/{case_id}/workspace` returns `WorkspaceResponse`: `generated_at`, disclaimer, case headline, evidence summary + inventory, processing rollup, integrity rollup, finding summary, review summary (open queue), timeline/correlation/group/graph summaries (reusing the Phase 4 shapes), assistant history, report history | ✅ |
+| 2 | Presentation layer only — building the workspace never runs parsing/normalization, analysis, correlation, the assistant, or report generation; no write or mutation of any row; absent data reported honestly (`Not processed`, `Unverified`, zero counts, empty lists) — never fabricated | ✅ |
+| 3 | Every query filters by `case.id`; a workspace can never expose another case's rows; unknown case → 404 `CASE_NOT_FOUND` | ✅ |
+| 4 | Findings queue bounded at `WORKSPACE_FINDINGS_LIMIT` (50), correlations 100, groups 100, assistant history `WORKSPACE_HISTORY_LIMIT` (10), reports 20, per-finding id arrays 50 | ✅ |
+| 5 | Processing rollup label resolves from persisted runs (`Not processed` / `Failed` / `Partial` / `In progress` / `Completed`); integrity rollup from the latest check per evidence (`Unverified` / `Verified` / `Partially verified` / `Mismatch`), which ingest itself records as a verified check | ✅ |
+| 6 | Review summary exposes the open review queue with the persisted finding statuses; inline review reuses the existing `PATCH /api/cases/{case_id}/findings/{finding_id}` workflow (New → Under Review → Confirmed / Dismissed) | ✅ |
+| 7 | Integrity semantics match Phase 6: latest check wins (checked_at desc, id desc); a `MISMATCH` latest check flips the case-level status to `Mismatch` | ✅ |
+| 8 | Terminology: `WORKSPACE_LABEL` / `WORKSPACE_NOTE` / `WORKSPACE_DISCLAIMER`, `PROCESSING_*` rolls, `INTEGRITY_*` rolls added to `backend/app/terminology.py` and mirrored in `frontend/src/types/terminology.ts`; banned terms absent | ✅ |
+| 9 | UI: `/cases/{case_id}/workspace` page with tabs (Overview / Evidence / Findings + review / Timeline / Correlations / Activity groups / Graph / Assistant / Reports), deep links via `?tab=` / `?finding=` / `?evidence=` / `?event=`, React Flow graph reusing the Investigation page layout + table fallback, inline finding review, inline assistant ask, inline report generate; route registered before the case catch-all + *Open workspace →* button on the case page | ✅ |
+| 10 | Frontend DTOs mirror the backend schemas exactly; no new third-party dependencies (reuses React Flow + Tailwind + existing APIs) | ✅ |
+| 11 | Tests: 11 workspace tests in `backend/tests/test_workspace.py` (backend suite now **270 passed**) | ✅ |
+| 12 | Regression gate: `pytest` green (270 tests) + `npm run build` green + Phase 6 gate (`gate_phase6.py`) re-run green + dashboard regression (6 tests) + fresh-database demo-scenario E2E; docs updated to v1.10; banned terms absent from constants and docs | ✅ |
+
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 
 1. **Integrity terminology.** SHA-256 is described only as recording and verifying *file integrity*. `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` mean byte-level match/mismatch with the recorded hash. A standing disclaimer states that hashing does not establish who created or collected a file. Naming is *Evidence Integrity Verification* everywhere (module, page, endpoints `/verify`, `/integrity-test`).
@@ -641,3 +668,10 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 2. **Synthetic labelling.** Cases with `demo=True` and cases whose raw records carry the demonstration marker expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`); real cases expose `null`.
 3. **Frontend.** `/dashboard` page (`DashboardPage.tsx`) with totals stat cards, finding/processing/run/integrity/ML/custody breakdown panels, and a per-case KPI table (synthetic-label badge, case links, `formatDateTime`). New `api/dashboard.ts`, dashboard DTOs in `types/models.ts`, `DASHBOARD_LABEL`/`DASHBOARD_NOTE`/`DASHBOARD_KPI_LABEL` in both terminology modules. `Dashboard` nav link; Landing roadmap + footer mark Phase 7 done.
 4. **Tests + gate.** `backend/tests/test_dashboard.py` — 6 new tests (backend suite now **259 passed**) cross-checking every figure against direct DB counts, empty/no-pipeline zeros, full-pipeline persisted deltas, both synthetic-label paths, and read-only guarantee. `npm run build` green, `test_terminology` green, `gate_phase6.py` re-run green (104 checks), docs at v1.9. No new third-party dependencies (no charting library).
+
+## 29. Changelog — v1.9 → v1.10 additions (Phase 8 — Advanced analyst workspace)
+
+1. **Workspace backend.** New `services/workspace_service.py` + `routers/workspace.py` (`GET /api/cases/{case_id}/workspace`, tagged `workspace`) returning `WorkspaceResponse`: `generated_at`, `disclaimer` (`WORKSPACE_DISCLAIMER`), `case` headline (identity + processing/integrity rollup labels, evidence/event/anomalous-event/finding/review-open/correlation/group/report counts, demo-flagged `synthetic_label`), `evidence_summary` + `evidence[]` inventory (per-item integrity latest + counts, `latest_processing`, event count), `processing` rollup, `integrity_summary`, `finding_summary`, `review_summary` (bounded open queue), and Phase 4-shape `timeline_summary` / `correlation_summary` / `group_summary` / `graph_summary` plus `assistant_summary` (bounded persisted history) and `report_summary` (bounded, newest-first). Built **read-only**: only `SELECT`s run, no parsing/analysis/correlation/assistant/report execution, no writes; caps `WORKSPACE_FINDINGS_LIMIT` 50 / `WORKSPACE_CORRELATIONS_LIMIT` 100 / `WORKSPACE_GROUPS_LIMIT` 100 / `WORKSPACE_HISTORY_LIMIT` 10 / `WORKSPACE_REPORTS_LIMIT` 20 / `WORKSPACE_ITEM_IDS_LIMIT` 50.
+2. **Honesty + label semantics.** Processing rollup label resolves from persisted `ProcessingRun` statuses (`Not processed` / `Failed` / `Partial` / `In progress` / `Completed`); integrity uses the latest `IntegrityCheck` per evidence (checked_at desc, id desc) — ingest itself records a verified check, so a processed case reads `Verified` until a genuine `MISMATCH` flips the case-level status to `Mismatch`. Empty cases report `Not processed` / `Unverified` / zero counts / empty lists.
+3. **Frontend.** New `pages/InvestigationWorkspacePage.tsx` at `/cases/{case_id}/workspace`: tab bar (Overview / Evidence / Findings + review / Timeline / Correlations / Activity groups / Graph / Assistant / Reports), deep links via `?tab=` + `?finding=` / `?evidence=` / `?event=` anchors, the React Flow evidence graph + `table_rows` fallback reusing the Investigation page layout, inline finding review (reuses `reviewFinding` → existing `PATCH .../findings/{id}`), inline assistant ask (`askAssistant`), and inline report generate (`generateReport`) — each reloads the snapshot after a write. Route registered before the case catch-all; the case page gains an *Open workspace →* button. New `api/workspace.ts`, workspace DTOs in `types/models.ts`, and terminology mirror (`WORKSPACE_*`, `PROCESSING_*`, `INTEGRITY_*`) in `types/terminology.ts`. No new third-party dependencies.
+4. **Tests + gate.** `backend/tests/test_workspace.py` — 11 new tests (backend suite now **270 passed**): empty-case contract, full-pipeline aggregates equal persisted counts (incl. per-evidence integrity from check rows and injected `MISMATCH`), review queue reflects persisted statuses, demo synthetic label, 404 `CASE_NOT_FOUND`, read-only guarantee (row counts byte-unchanged), determinism (equal except `generated_at`), case isolation, and Phase 7 dashboard regression. `npm run build` green, `test_terminology` green, `gate_phase6.py` re-run green (104 checks), dashboard tests green, docs at v1.10.

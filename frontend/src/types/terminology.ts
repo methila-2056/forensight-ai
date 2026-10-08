@@ -199,3 +199,31 @@ export const REPORT_LIMIT_DATA =
 export const REPORT_ML_STATEMENT =
   "The ML component identified statistically unusual activity relative to the configured " +
   "detection strategy; anomaly scores are not proof of malicious activity.";
+
+// ---------------------------------------------------------------------------
+// Investigation workspace (Phase 8) — mirrors backend/app/terminology.py
+// ---------------------------------------------------------------------------
+
+export const WORKSPACE_LABEL = "Investigation Workspace";
+
+export const WORKSPACE_NOTE =
+  "Workspace figures are read-only aggregates of the data already persisted " +
+  "by the analysis phases and the assistant/report history of this case. " +
+  "They are counts and re-shaped views of stored rows, not new analysis, " +
+  "and require investigator review.";
+
+export const WORKSPACE_DISCLAIMER =
+  "Read-only working console: every figure is drawn from data already " +
+  "persisted for this case by Phases 1-7. No analysis is re-run and no " +
+  "write happens while viewing the workspace.";
+
+export const PROCESSING_NOT_PROCESSED = "Not processed";
+export const PROCESSING_IN_PROGRESS = "In progress";
+export const PROCESSING_PARTIAL = "Partial";
+export const PROCESSING_FAILED = "Failed";
+export const PROCESSING_COMPLETED = "Completed";
+
+export const INTEGRITY_UNVERIFIED = "Unverified";
+export const INTEGRITY_PARTIAL = "Partially verified";
+export const INTEGRITY_LATEST_VERIFIED = "Verified";
+export const INTEGRITY_LATEST_MISMATCH = "Mismatch";

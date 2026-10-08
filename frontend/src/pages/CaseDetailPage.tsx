@@ -278,6 +278,12 @@ export default function CaseDetailPage(): JSX.Element {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            to={`/cases/${caseId}/workspace`}
+            className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+          >
+            Open workspace →
+          </Link>
+          <Link
             to={`/cases/${caseId}/assistant`}
             className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
           >

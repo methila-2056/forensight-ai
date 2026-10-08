@@ -50,7 +50,7 @@ export default function AppShell(): JSX.Element {
       </main>
 
       <footer className="print-hide border-t border-slate-800 px-6 py-4 text-center font-mono text-[10px] uppercase tracking-widest text-slate-600">
-        {PRODUCT_NAME} · Phase 7 · SUTRAM 2026 · Findings from rules and anomaly scores are
+        {PRODUCT_NAME} · Phase 8 · SUTRAM 2026 · Findings from rules and anomaly scores are
         statistical observations — they require investigator validation
       </footer>
     </div>

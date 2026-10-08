@@ -22,10 +22,11 @@ const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "S
   { id: "5", label: "Evidence-traceable investigation assistant (deterministic, case-scoped)", tier: "Secondary", done: true },
   { id: "6", label: "Investigation report layer (immutable evidence-backed snapshots + print UI)", tier: "Secondary", done: true },
   { id: "7", label: "Dashboard", tier: "Secondary", done: true },
-  { id: "8", label: "Segment classifier metrics", tier: "Secondary", done: false },
-  { id: "9", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
-  { id: "10", label: "One-click demo case + polish", tier: "Core", done: false },
-  { id: "11", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
+  { id: "8", label: "Advanced analyst workspace (read-only investigation console)", tier: "Secondary", done: true },
+  { id: "9", label: "Segment classifier metrics", tier: "Secondary", done: false },
+  { id: "10", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
+  { id: "11", label: "One-click demo case + polish", tier: "Core", done: false },
+  { id: "12", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
 ];
 
 export default function Landing(): JSX.Element {
@@ -61,7 +62,7 @@ export default function Landing(): JSX.Element {
         <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{PRODUCT_CONCEPT}</p>
         <div className="mt-4 flex flex-wrap gap-3 font-mono text-xs">
           <span className={`border border-slate-700 px-2 py-1 ${healthTone}`}>{healthLabel}</span>
-          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–7 · CORE PIPELINE + ASSISTANT + REPORTS + DASHBOARD</span>
+          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–8 · CORE PIPELINE + ASSISTANT + REPORTS + DASHBOARD + WORKSPACE</span>
           <span className="border border-slate-700 px-2 py-1 text-amber-500">{SYNTHETIC_DATA_LABEL}</span>
         </div>
       </header>
@@ -127,14 +128,15 @@ export default function Landing(): JSX.Element {
       <section className="border border-slate-800 bg-slate-900/50 p-5">
         <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Status</h2>
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          Phases 0–7 are implemented: cases and write-once evidence with SHA-256 integrity
+          Phases 0–8 are implemented: cases and write-once evidence with SHA-256 integrity
           verification and chain of custody, parsing and normalization with a processing log,
           rule-based and ML anomaly analysis with explanations, cross-source correlation
           with activity groups, reconstructed timeline, and the evidence graph, a
           case-scoped investigation assistant, immutable, evidence-backed investigation
-          reports, and a read-only scenario-statistics dashboard. Segment classifier
-          metrics, notes, and a one-click demo loader arrive in later phases per the
-          roadmap above. API reference:{" "}
+          reports, a read-only scenario-statistics dashboard, and an advanced analyst
+          workspace that re-shapes those persisted rows into a read-only, case-scoped
+          investigation console. Segment classifier metrics, notes, and a one-click demo
+          loader arrive in later phases per the roadmap above. API reference:{" "}
           <a className="text-cyan-400 underline" href="/docs" target="_blank" rel="noreferrer">
             /docs
           </a>

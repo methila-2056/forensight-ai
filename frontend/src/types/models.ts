@@ -843,3 +843,152 @@ export interface DashboardData {
   runs: RunSummary;
   cases: CaseKpi[];
 }
+
+// ---------------------------------------------------------------------------
+// Investigation workspace (Phase 8) — read-only snapshot of persisted rows
+// ---------------------------------------------------------------------------
+
+export type IntegrityLatest = "VERIFIED" | "MISMATCH" | null;
+
+export interface WorkspaceCaseSummary {
+  case_id: string;
+  name: string;
+  investigator: string;
+  status: CaseStatus;
+  severity: Severity;
+  description: string;
+  created_at: string;
+  last_activity: string;
+  demo: boolean;
+  synthetic_label: string | null;
+  processing_status: string;
+  integrity_status: string;
+  evidence_count: number;
+  event_count: number;
+  anomalous_event_count: number;
+  finding_count: number;
+  review_open_items: number;
+  correlation_count: number;
+  activity_group_count: number;
+  report_count: number;
+}
+
+export interface WorkspaceProcessingStatus {
+  label: string;
+  runs: number;
+  by_status: Record<string, number>;
+  evidence_processed: number;
+  records_received: number;
+  records_parsed: number;
+  records_normalized: number;
+  records_rejected: number;
+  duplicates_detected: number;
+}
+
+export interface WorkspaceEvidenceIntegrity {
+  checks: number;
+  verified: number;
+  mismatch: number;
+  latest: IntegrityLatest;
+}
+
+export interface WorkspaceEvidenceItem {
+  evidence_id: string;
+  original_filename: string;
+  evidence_type: EvidenceType;
+  status: EvidenceStatus;
+  source_description: string;
+  file_size: number;
+  sha256: string;
+  uploaded_at: string;
+  record_count: number | null;
+  parse_ok: number | null;
+  parse_rejected: number | null;
+  integrity: WorkspaceEvidenceIntegrity;
+  latest_processing: string | null;
+  event_count: number;
+}
+
+export interface WorkspaceEvidenceSummary {
+  total: number;
+  processed: number;
+  verified: number;
+  mismatch: number;
+  unverified: number;
+  failed: number;
+  total_bytes: number;
+  by_type: Record<string, number>;
+  by_status: Record<string, number>;
+}
+
+export interface WorkspaceIntegritySummary {
+  checks: number;
+  verified: number;
+  mismatch: number;
+}
+
+export interface WorkspaceFindingItem {
+  finding_id: string;
+  kind: FindingKind;
+  rule_id: string | null;
+  model_name: string | null;
+  title: string;
+  severity: Severity;
+  status: FindingStatus;
+  confidence: number | null;
+  anomaly_score: number | null;
+  threshold: number | null;
+  composite_suspicion_score: number | null;
+  explanation: unknown;
+  reasons: string[] | null;
+  event_ids: string[];
+  evidence_ids: string[];
+  timestamp_start: string | null;
+  timestamp_end: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceFindingSummary {
+  total: number;
+  high_severity: number;
+  by_kind: Record<string, number>;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+}
+
+export interface WorkspaceReviewSummary {
+  total: number;
+  open_items: number;
+  by_status: Record<string, number>;
+  queue: WorkspaceFindingItem[];
+}
+
+export interface WorkspaceAssistantSummary {
+  query_count: number;
+  history: AssistantQueryResult[];
+}
+
+export interface WorkspaceReportSummary {
+  count: number;
+  latest: ReportSummary | null;
+  reports: ReportSummary[];
+}
+
+export interface WorkspaceResponse {
+  generated_at: string;
+  disclaimer: string;
+  case: WorkspaceCaseSummary;
+  evidence_summary: WorkspaceEvidenceSummary;
+  evidence: WorkspaceEvidenceItem[];
+  processing: WorkspaceProcessingStatus;
+  integrity_summary: WorkspaceIntegritySummary;
+  finding_summary: WorkspaceFindingSummary;
+  review_summary: WorkspaceReviewSummary;
+  timeline_summary: TimelineResult;
+  correlation_summary: CorrelationListResult;
+  group_summary: GroupListResult;
+  graph_summary: GraphResult;
+  assistant_summary: WorkspaceAssistantSummary;
+  report_summary: WorkspaceReportSummary;
+}
