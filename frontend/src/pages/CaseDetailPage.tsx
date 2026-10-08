@@ -13,6 +13,7 @@ import {
 } from "../api/evidence";
 import { listProcessingRuns, processCase } from "../api/processing";
 import { correlateCase, listCorrelationRuns } from "../api/correlation";
+import { listReports } from "../api/reports";
 import { CaseStatusBadge, EvidenceStatusBadge, IntegrityResultBadge, ProcessingStatusBadge, SeverityBadge } from "../components/Badges";
 import CustodyLog from "../components/CustodyLog";
 import ErrorBox from "../components/ErrorBox";
@@ -81,6 +82,8 @@ export default function CaseDetailPage(): JSX.Element {
   const [correlating, setCorrelating] = useState(false);
   const [corrError, setCorrError] = useState<string | null>(null);
 
+  const [reportCount, setReportCount] = useState(0);
+
   const loadAll = useCallback(() => {
     Promise.all([
       getCase(caseId),
@@ -90,8 +93,9 @@ export default function CaseDetailPage(): JSX.Element {
       listProcessingRuns(caseId),
       listAnalysisRuns(caseId),
       listCorrelationRuns(caseId),
+      listReports(caseId),
     ])
-      .then(([loadedCase, evidenceList, custody, loadedPolicy, processingRuns, runs, correlationRuns]) => {
+      .then(([loadedCase, evidenceList, custody, loadedPolicy, processingRuns, runs, correlationRuns, reports]) => {
         setCaseData(loadedCase);
         setEvidence(evidenceList);
         setCaseCustody(custody);
@@ -99,6 +103,7 @@ export default function CaseDetailPage(): JSX.Element {
         setRuns(processingRuns);
         setAnalysisRuns(runs);
         setCorrRuns(correlationRuns);
+        setReportCount(reports.length);
         setStatusDraft(loadedCase.status);
         setSeverityDraft(loadedCase.severity);
         setError(null);
@@ -725,6 +730,37 @@ export default function CaseDetailPage(): JSX.Element {
         ) : (
           <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
             No correlation runs yet — process evidence, then run correlation.
+          </p>
+        )}
+      </section>
+
+      <section className="border border-slate-800 bg-slate-900/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">
+              Investigation reports — immutable forensic snapshots
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Generates a deterministic 15-section forensic report from the persisted
+              evidence, processing, analysis, correlation, and custody records for this
+              case. Each generation is an immutable snapshot; generate as many as you need
+              and print them via the browser.
+            </p>
+          </div>
+          <Link
+            to={`/cases/${caseId}/reports`}
+            className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+          >
+            Open reports →
+          </Link>
+        </div>
+        {reportCount === 0 ? (
+          <p className="mt-4 border border-dashed border-slate-700 p-6 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
+            No reports generated yet — open the reports page to create the first snapshot.
+          </p>
+        ) : (
+          <p className="mt-4 font-mono text-[11px] uppercase tracking-wider text-slate-500">
+            {reportCount} snapshot report{reportCount === 1 ? "" : "s"} generated
           </p>
         )}
       </section>

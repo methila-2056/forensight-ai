@@ -12,3 +12,31 @@ body {
   background-color: #020617;
   color: #e2e8f0;
 }
+
+/* Print: strip the report sheet to clean black-on-white output. */
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  html,
+  body,
+  #root {
+    background: #ffffff !important;
+  }
+  body {
+    color: #0f172a !important;
+  }
+  .report-print,
+  .report-print * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+  .report-section {
+    break-inside: avoid;
+  }
+}

@@ -9,6 +9,8 @@ import FindingDetailPage from "./pages/FindingDetailPage";
 import FindingsPage from "./pages/FindingsPage";
 import InvestigationPage from "./pages/InvestigationPage";
 import Landing from "./pages/Landing";
+import ReportDetailPage from "./pages/ReportDetailPage";
+import ReportListPage from "./pages/ReportListPage";
 
 export default function App(): JSX.Element {
   return (
@@ -29,6 +31,11 @@ export default function App(): JSX.Element {
             element={<InvestigationPage />}
           />
           <Route path="/cases/:caseId/assistant" element={<AssistantPage />} />
+          <Route path="/cases/:caseId/reports" element={<ReportListPage />} />
+          <Route
+            path="/cases/:caseId/reports/:reportId"
+            element={<ReportDetailPage />}
+          />
           <Route path="/cases/:caseId" element={<CaseDetailPage />} />
         </Route>
       </Routes>

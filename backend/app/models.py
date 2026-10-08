@@ -1,10 +1,11 @@
-"""SQLAlchemy models — schema per Architecture v1.6 (Phases 0–5).
+"""SQLAlchemy models — schema per Architecture v1.8 (Phases 0–6).
 
 Table list:
 cases, evidence, integrity_checks, chain_of_custody, raw_records,
 forensic_events, processing_runs, rule_findings, ml_findings,
 classifier_results, correlations, correlation_runs, investigation_groups,
-investigation_runs, investigator_notes, assistant_queries, model_metrics.
+investigation_runs, investigator_notes, assistant_queries, model_metrics,
+investigation_reports.
 
 Note: the normalized-event payload column is named "metadata" at the SQL level
 and exposed as the attribute ``extra`` to avoid clashing with the SQLAlchemy
@@ -218,6 +219,9 @@ class Case(Base):
     runs: Mapped[list["InvestigationRun"]] = relationship("InvestigationRun")
     notes: Mapped[list["InvestigatorNote"]] = relationship("InvestigatorNote")
     custody: Mapped[list["ChainOfCustody"]] = relationship("ChainOfCustody")
+    reports: Mapped[list["InvestigationReport"]] = relationship(
+        "InvestigationReport", back_populates="case"
+    )
 
 
 class Evidence(Base):
@@ -579,3 +583,34 @@ class ModelMetric(Base):
     accuracy: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     feature_list: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class InvestigationReport(Base):
+    """One immutable, case-scoped forensic report snapshot (Phase 6).
+
+    Append-only: every generation inserts a new row with a fresh ``report_id``
+    and the stored ``report_json`` is never modified once written. The payload
+    is ``{"metadata": {"report_id", "case_id", "title", "report_version",
+    "schema", "status", "generated_at", "generated_by"}, "sections": {...}}``
+    where ``sections`` contains the deterministic report content built only
+    from data already persisted by Phases 1–5. Identity fields are kept out of
+    ``sections`` so unchanged input data yields identical ``sections`` across
+    generations; ``report_version`` and ``schema`` identify the structural
+    contract of the stored JSON.
+    """
+
+    __tablename__ = "investigation_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[str] = mapped_column(String(48), unique=True, nullable=False, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    generated_by: Mapped[str] = mapped_column(String(127), nullable=False, default="investigator")
+    report_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    schema: Mapped[str] = mapped_column(String(48), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    report_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    case: Mapped["Case"] = relationship("Case", back_populates="reports")

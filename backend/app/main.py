@@ -10,7 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import config, terminology
 from app.db import init_db
 from app.errors import register_error_handlers
-from app.routers import analysis, assistant, cases, correlation, events, evidence, health, processing
+from app.routers import (
+    analysis,
+    assistant,
+    cases,
+    correlation,
+    events,
+    evidence,
+    health,
+    processing,
+    reports,
+)
 
 
 @asynccontextmanager
@@ -49,6 +59,7 @@ app.include_router(events.router, prefix=config.API_PREFIX)
 app.include_router(analysis.router, prefix=config.API_PREFIX)
 app.include_router(correlation.router, prefix=config.API_PREFIX)
 app.include_router(assistant.router, prefix=config.API_PREFIX)
+app.include_router(reports.router, prefix=config.API_PREFIX)
 
 
 @app.get("/", include_in_schema=False)

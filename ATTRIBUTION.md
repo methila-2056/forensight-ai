@@ -18,6 +18,7 @@ original implementation.
 - Multi-source correlation logic with per-link reasons and chain assembly
 - Reconstructed timeline construction and evidence-graph generation
 - Deterministic retrieval-first investigator assistant
+- Immutable investigation report layer (deterministic 15-section JSON snapshots, global `RPT-` sequence, custody, printable UI)
 - Traceability ladder (Finding → Reason → Forensic Event → Raw Record → Evidence File → Recorded SHA-256)
 - Synthetic demo scenario generators and the report builder
 - All UI/UX, tests, and documentation
@@ -45,7 +46,9 @@ License identifiers above were read from the installed package metadata /
 bundled LICENSE files of the exact versions in `backend/requirements*.txt`.
 
 Planned for later phases (declared now, used when those phases land):
-pandas (BSD-3-Clause), reportlab (BSD-3-Clause) for reports.
+pandas (BSD-3-Clause) for the segment-level classifier. The report layer is
+implemented with the existing stack (JSON snapshots + browser print), so no
+report library (e.g. reportlab) was needed.
 
 ## Frontend dependencies (`frontend/package.json`)
 

@@ -690,3 +690,52 @@ export const ASSISTANT_SUGGESTED_QUESTIONS = [
   "Have all evidence files been verified?",
   "What is the processing status?",
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Forensic reports (Phase 6)
+// ---------------------------------------------------------------------------
+
+export const REPORT_SECTION_ORDER = [
+  "header",
+  "executive_summary",
+  "evidence_inventory",
+  "integrity_verification",
+  "processing_summary",
+  "key_findings",
+  "finding_traceability",
+  "cross_source_correlation",
+  "activity_groups",
+  "incident_timeline",
+  "evidence_graph_summary",
+  "investigator_review",
+  "ai_ml_explanation",
+  "investigation_conclusion",
+  "limitations",
+] as const;
+
+export type ReportSectionName = (typeof REPORT_SECTION_ORDER)[number];
+
+export interface ReportSummary {
+  report_id: string;
+  case_id: string;
+  title: string;
+  report_version: string;
+  schema: string;
+  status: string;
+  generated_at: string | null;
+  generated_by: string;
+}
+
+export interface ReportDetail extends ReportSummary {
+  sections: Record<ReportSectionName, Record<string, unknown>>;
+}
+
+export interface ReportGenerateRequest {
+  title?: string;
+  actor?: string;
+}
+
+export interface ReportRawJson {
+  metadata: Record<string, unknown>;
+  sections: Record<ReportSectionName, Record<string, unknown>>;
+}

@@ -3,9 +3,9 @@
 **AI-Powered Digital Forensics Investigation Framework**
 SUTRAM 2026 — flagship challenge: *Building an AI-Powered Indigenous Digital Forensics Investigation Framework*
 
-> FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, and maintains traceability from findings back to source evidence.
+> FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, maintains traceability from findings back to source evidence, and produces immutable, evidence-backed investigation reports.
 
-**Current status:** Phases 0–5 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), and an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model) implemented (backend + UI). The Phase 4.5 gate and the Phase 5 assistant gate (fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: dashboard, report, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
+**Current status:** Phases 0–6 + Phase 4.5 core acceptance gate — case management, evidence upload, SHA-256 integrity verification, controlled integrity test, chain of custody, **evidence parsing and event normalization** (CSV/JSON → common forensic event schema), a **processing log**, **automated analysis** (transparent rules, Strategy A anomaly detection, Composite Suspicion Score fusion, findings review workflow), **cross-source correlation** (reason-tagged links, activity groups, reconstructed timeline, evidence graph, investigation UI), an **evidence-traceable AI investigation assistant** (deterministic, retrieval-first, case-scoped — no generative model), and an **investigation report layer** (deterministic 15-section evidence-backed snapshots, immutable and case-scoped, print UI) implemented (backend + UI). The Phase 4.5 gate, the Phase 5 assistant gate, and the Phase 6 report gate (all fresh-database end-to-end runs incl. mandatory cross-case isolation) pass with no open issues; re-processing evidence whose events are already referenced by correlation/finding history keeps those rows and records an explanatory warning instead of failing. Next: dashboard, segment classifier metrics, notes, demo loader — per [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -38,11 +38,11 @@ Finding → Reason → Forensic Event → Raw Record → Evidence File → Recor
 
 The chain is visible in the UI, in assistant answers, and in the generated report. This is the project's central claim: **evidence-traceable AI-assisted forensic investigation**.
 
-## Scope (per Architecture v1.7)
+## Scope (per Architecture v1.8)
 
 **MUST-HAVE CORE** — case management · evidence upload · SHA-256 integrity verification · evidence metadata · parsing · normalization · rule engine · ML anomaly detection · multi-source correlation · timeline reconstruction · evidence traceability · basic dashboard · demo scenario.
 
-**SECONDARY** — evidence graph · PDF report · investigator notes · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)**.
+**SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · investigator notes · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)**.
 
 **STRETCH** — ZIP support · Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · Docker · advanced scalability.
 
@@ -60,21 +60,21 @@ forensight-ai/
 │   │   ├── main.py            # FastAPI app, OpenAPI, CORS, lifespan
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
-│   │   ├── routers/           # health, cases, evidence, processing, events, analysis, assistant
-│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis
+│   │   ├── routers/           # health, cases, evidence, processing, events, analysis, correlation, assistant, reports
+│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis, correlation, report
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
 │   │   ├── security/uploads.py   # Phase 1: upload validation
-│   │   └── engines/           # parsing, rules, ml implemented; assistant/
-│   │                          # report, notes, demo (Phase 6/8+)
+│   │   └── engines/           # parsing, rules, ml implemented; assistant/ implemented
+│   │                          # report implemented (services/report_service); notes, demo (later phases)
 │   ├── tests/                 # pytest suite (terminology, raw store, API, models,
-│   │                          # timestamps, parsers, processing, analysis, assistant, demo datasets)
+│   │                          # timestamps, parsers, processing, analysis, assistant, reports, demo datasets)
 │   ├── data/                  # SQLite db (git-ignored)
 │   ├── evidence_store/        # raw evidence, write-once (git-ignored)
 │   ├── ml_artifacts/          # trained model artifacts (git-ignored)
 │   └── demo/scenarios/        # 6 synthetic demo datasets + README (Phase 2)
 └── frontend/
     └── src/                   # React + TypeScript + Vite + Tailwind
-        ├── api/ types/ state/ components/ pages/   # incl. Events, Findings, Finding detail, Assistant
+        ├── api/ types/ state/ components/ pages/   # incl. Events, Findings, Finding detail, Assistant, Reports
 ```
 
 ## Setup
@@ -175,6 +175,17 @@ Phase 5 — evidence-traceable investigation assistant (deterministic, no genera
 
 Every answer is reconstructed from the queried case's own persisted data (case-scoped — no cross-case leakage), carries cited sources, and appends to `assistant_queries`. A reference to a finding in a different case returns a structured `FINDING_NOT_FOUND` 404.
 
+Phase 6 — investigation report layer (immutable, evidence-backed snapshots):
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/reports` | Generate + store a deterministic 15-section forensic snapshot (201; optional `title`/`actor`) |
+| GET | `/api/cases/{case_id}/reports` | Report summaries for the case (newest-first) |
+| GET | `/api/cases/{case_id}/reports/{report_id}` | One report with its sections (404 `REPORT_NOT_FOUND` outside the owning case) |
+| GET | `/api/cases/{case_id}/reports/{report_id}/json` | Raw stored snapshot `{metadata, sections}`, unchanged since generation |
+
+Reports are read-only, case-scoped snapshots: ID `RPT-{n:06d}` comes from a global sequence, each generation records `Report Generated` custody, and re-generating never rewrites an earlier snapshot.
+
 Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.md#api-surface).
 
 ## Roadmap
@@ -188,11 +199,12 @@ Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.
 | 4 | Correlation + activity groups + reconstructed timeline + evidence graph + investigation UI | Core |
 | 4.5 | **Core acceptance gate** (end-to-end core pipeline) | Core |
 | 5 | **Investigation assistant** — deterministic, retrieval-first, case-scoped | Secondary |
-| 6 | Dashboard | Secondary |
-| 7 | Report (PDF/JSON) + segment classifier metrics | Secondary |
-| 8 | Notes (investigator annotations) | Secondary |
-| 9 | One-click demo case + polish | Core polish |
-| 10 | Stretch items only if 0–9 are green | Stretch |
+| 6 | **Investigation report layer** — immutable evidence-backed snapshots + print UI | Secondary |
+| 7 | Dashboard | Secondary |
+| 8 | Segment classifier metrics | Secondary |
+| 9 | Notes (investigator annotations) | Secondary |
+| 10 | One-click demo case + polish | Core polish |
+| 11 | Stretch items only if 0–10 are green | Stretch |
 
 ## Attribution
 

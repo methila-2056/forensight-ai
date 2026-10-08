@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.7
+# FORENSIGHT AI — Architecture v1.8
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0–5 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate passed · This document is the approved specification for all subsequent phases.
+Status: Phases 0–6 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -13,7 +13,7 @@ Status: Phases 0–5 implemented, Phase 4.5 core acceptance gate + Phase 5 assis
 
 ## 1. Product language (canonical)
 
-> FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, and maintains traceability from findings back to source evidence.
+> FORENSIGHT AI is an AI-assisted digital forensic investigation prototype that preserves uploaded evidence, verifies file integrity through SHA-256 hashing, converts heterogeneous logs into normalized forensic events, detects suspicious patterns using transparent rules and explainable machine learning, correlates evidence across sources, reconstructs an investigator-reviewable timeline, maintains traceability from findings back to source evidence, and produces immutable, evidence-backed investigation reports.
 
 The system is not described as operating without investigator oversight, not as a product that certifies evidence, and not as a system that establishes criminal conduct. It is a **prototype-level forensic workflow** that supports an investigator.
 
@@ -90,7 +90,7 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | 11 | Investigator assistant | `engines/assistant` (deterministic) | Secondary |
 | 12 | Explainability | finding `reasons` payloads | Core (with 6/7) |
 | 13 | Dashboard | stats aggregation | Core |
-| 14 | Report generation | `engines/report` | Secondary |
+| 14 | Report generation (immutable JSON snapshots + print UI) | `services/report_service` | Secondary (implemented, Phase 6) |
 | — | Segment-level classifier | `engines/ml/classifier` | Secondary |
 | — | Investigator notes | `investigator_notes` | Secondary |
 
@@ -108,7 +108,7 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | `forensic_events` | Normalized events | timestamp, source_type, entities, **anomaly_score**, **is_anomalous**, metadata, dedupe_hash, raw_record_id |
 | `rule_findings` | Rule hits | **finding_uid (RFND-)**, run_id, rule_id, severity, confidence, explanation, reasons, **composite_suspicion_score**, **components**, triggered_event_ids, evidence_ids, **status** |
 | `ml_findings` | ML findings | **finding_uid (MFND-)**, run_id, model_name/version, score, threshold, **composite_suspicion_score**, **components**, explanation, **feature_snapshot**, event_ids, evidence_ids, status |
-| `classifier_results` | Segment-level predictions (Phase 6) | window_start/end, predicted_label, class_score |
+| `classifier_results` | Segment-level predictions (planned, later phase) | window_start/end, predicted_label, class_score |
 | `correlations` | Chain placements (Phase 4) | chain_uid, position, link_score, **link_reason** |
 | `investigation_groups` | Phase 4 activity groups | group_uid, kind, title, explanation, member refs |
 | `investigation_runs` | Pipeline runs | **run_uid (IRUN-)**, stage (Process/Analyze/Correlate/Report), status, **stats (ML methodology + fusion weights + rule config)**, error |
@@ -116,6 +116,7 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | `model_metrics` | Real evaluation results | precision, recall, f1, feature_list, dataset_desc |
 | `processing_runs` | Parse/normalize runs | run_id, evidence_id, parser, status, received/normalized/rejected/duplicates, warnings, error, timestamps |
 | `assistant_queries` | Assistant Q&A (Phase 5, append-only) | query_id, case_id, question, intent, answer, evidence refs, basis, confidence, sources JSON, disclaimer, actor, created_at |
+| `investigation_reports` | Forensic report snapshots (Phase 6, immutable, case-scoped) | **report_id (RPT-)**, case_id, title, schema, report_version, status, generated_by, **sections JSON**, recorded_at |
 
 Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent` and `Evidence 1→N ProcessingRun`; every finding carries event-ID and evidence-ID arrays for direct traceability; `assistant_queries` is case-scoped and never rewritten (repeated questions append new rows).
 
@@ -142,7 +143,7 @@ ANALYZE → FeatureBuilder → 5-minute event windows → Strategy A IsolationFo
         → RuleFindings (RFND-) + MlFindings (MFND-) → fusion → Composite Suspicion Score
         → custody(Automated Analysis Started/Completed)
 CORRELATE → reason-tagged links → chains → Reconstructed Investigation Timeline → graph
-REPORT  → PDF/JSON → custody(Report Generated)
+REPORT  → deterministic 15-section JSON snapshot → custody(Report Generated)
 ```
 
 **Timestamp handling:** ISO-8601 (±Z), `YYYY-MM-DD HH:MM:SS[.fff]`, Apache-style, US format, epoch s/ms — tried in order; unparseable rows are rejected *with reason* and retained. **Field aliases:** `user|username|account → user`, `ip|src_ip|source_ip → source_ip`, `ts|time|timestamp|@timestamp → timestamp`, etc.
@@ -170,7 +171,7 @@ REPORT  → PDF/JSON → custody(Report Generated)
 
 **UI contract:** every display shows **"Anomaly score"** *and* **"Detection threshold"** side by side, with the note: *"The anomaly score indicates statistical deviation from this case's typical event patterns. It is not proof of malicious activity and requires investigator review."* ML-metrics endpoint exposes the full stats payload (`GET /api/cases/{id}/ml-metrics`).
 
-### 9.2 Segment-level classification (planned, Phase 6 — not implemented)
+### 9.2 Segment-level classification (planned, later phase — not implemented)
 
 | Field | Definition |
 |---|---|
@@ -259,6 +260,19 @@ No generative model is enabled. An optional LLM adapter interface exists but is 
 
 **As-built (v1.7, Phase 5):** a closed 14-intent catalog (`CASE_SUMMARY, TOP_FINDINGS, FINDING_EXPLANATION, FINDING_TRACE, EVIDENCE_SUPPORT, TIMELINE_CONTEXT, CORRELATION_SUMMARY, GROUP_SUMMARY, ML_EXPLANATION, REVIEW_QUEUE, INTEGRITY_STATUS, PROCESSING_STATUS` + control intents `CAPABILITIES, UNKNOWN`) with deterministic keyword/regex classification; every answer is reconstructed from bounded, case-scoped queries that reuse the analysis/correlation/processing services, and carries `evidence`, `basis`, a confidence band (`HIGH/MEDIUM/LOW`), clickable `sources`, and the standing footer. Unsupported questions return a fixed deterministic message; an empty case returns *"No forensic evidence is currently available for this case."* for all intents except CAPABILITIES/UNKNOWN. Finding references are extracted case-insensitively and uppercased; a reference that does not exist in the case returns a structured `FINDING_NOT_FOUND` 404 — never data from another case. Every query is persisted append-only in `assistant_queries` (case-scoped, 17th table), repeated questions append new rows, and history answers are served newest-first. The ML explanation intent states plainly that the score reflects statistical deviation and is not proof — SHA-256 confirms the file is unchanged and implies nothing about authenticity or admissibility.
 
+### 13.1 Investigation report layer (evidence-backed snapshots) — implemented, Phase 6
+
+`POST /api/cases/{case_id}/reports` generates a deterministic, case-scoped forensic report and stores it as an **immutable JSON snapshot** (`InvestigationReport`, 18th table). Generation consumes **only persisted Phase 0–5 data** — the report layer performs no analysis, no ML, and no NLP at generation time — so the section payloads (`sections`) are **byte-deterministic** for a fixed database state: every identity field (`report_id`, `generated_at`, `title`, `generated_by`) is carried as report metadata, never inside the sections.
+
+**Contract:** report IDs `RPT-{n:06d}` come from a **single global sequence across all cases**. A report belongs to exactly one case; requesting it, or its `/json` cache, under any other case returns `REPORT_NOT_FOUND` (404). Every generation records a `Report Generated` custody action with `{report_id, title, report_version, schema}` and updates `case.last_activity`; generation must **not mutate** evidence, findings, correlations, groups, timelines, or assistant history (asserted by test). The stored JSON is served unchanged by the detail and `/json` endpoints (schema 1, `recorded_at`); re-generating reads current state and never edits an existing snapshot.
+
+**Sections (fixed order, 15):** `header` · `executive_summary` · `evidence_inventory` · `integrity_verification` · `processing_summary` · `key_findings` · `finding_traceability` · `cross_source_correlation` · `activity_groups` · `incident_timeline` · `evidence_graph_summary` · `investigator_review` · `ai_ml_explanation` · `investigation_conclusion` · `limitations`.
+
+- **Integrity status (latest check per evidence, `checked_at` desc then `id` desc):** no checks → `NO CHECK AVAILABLE`; any `INTEGRITY MISMATCH` wins; all verified → `INTEGRITY VERIFIED`; otherwise `NOT VERIFIED`. (Uploading evidence auto-records a verified check at ingest, so a "no check" report only appears when an evidence row has no check at all.)
+- **Conclusion modes:** no evidence → `REPORT_NO_ANALYSIS`; zero events and zero findings → `REPORT_CONCLUSION_INSUFFICIENT`; zero findings → `REPORT_CONCLUSION_NO_FINDINGS`; otherwise `WITH_CORRELATION` / `NO_CORRELATION`; high/critical findings append `REPORT_HIGH_SEVERITY_NOTE` to the conclusion notes.
+- **Honesty contract (guard-tested):** report wording never claims authenticity, admissibility, or probability; the ML explanation repeats the standing statistical-deviation disclaimer; abstention (`ML_MIN_WINDOWS`) and all caps — 200 findings, 50 trace rows, 200 correlations, 200 groups, 200 process runs, 50 graph rows (`_REPORT_MAX_*` module bounds) — are surfaced as explanatory notes; demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker in the executive summary.
+- **UI:** `/cases/{case_id}/reports` (generate with optional title + actor, newest-first list) and `/cases/{case_id}/reports/{report_id}` (a generic section renderer — field blocks, key/value pairs, and object-row tables with truncated hashes — plus a **Print report** button and a dedicated `@media print` stylesheet: `#root` forced white, `.print-hide` chrome removed, `.report-print` sections black-on-white with `break-inside: avoid`).
+
 ## 14. Demo scenarios (synthetic, seeded, labelled)
 
 All files carry a `SYNTHETIC / DEMONSTRATION DATA` marker; fictional personas only; generated by `demo/generate_scenarios.py` with seed 42 (reproducible hashes).
@@ -338,28 +352,38 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/api/cases/{case_id}/assistant/history` | Append-only query history for the case (newest first; limit 1–500, default 100) |
 | GET | `/api/cases/{case_id}/assistant/queries/{query_id}` | One stored answer (404 `ASSISTANT_QUERY_NOT_FOUND` if not in this case) |
 
+**Implemented (Phase 6):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/reports` | Generate + store an immutable forensic snapshot (`{title? ≤255, actor? ≤127}`); 201, custody `Report Generated`, global `RPT-{n:06d}` sequence |
+| GET | `/api/cases/{case_id}/reports` | Report summaries for the case (newest-first) |
+| GET | `/api/cases/{case_id}/reports/{report_id}` | One report with its 15 deterministic sections (404 `REPORT_NOT_FOUND` if not in this case) |
+| GET | `/api/cases/{case_id}/reports/{report_id}/json` | The raw stored snapshot `{metadata, sections}` (cached JSON, unchanged since generation) |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
 GET  /api/evidence/{ev_id}[/download|/records]
-POST /api/cases/{id}/notes
-POST /api/cases/{id}/report                 POST /api/demo/load
+POST /api/cases/{id}/notes                     POST /api/demo/load
 ```
 
 All errors use a uniform envelope `{error:{code,message,detail}}`; server paths are never exposed.
 
 ## 16. Security considerations
 
-Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisation with UUID storage names (traversal-proof); zip-slip guards when ZIP lands; raw store write-once with no overwrite path; no execution of uploaded content; Pydantic validation on every input; parameterized SQL via ORM; evidence text always rendered escaped; evidence treated as data (never as instructions); request logging; report embeds every SHA-256 so a third party can re-verify independently; CSV export neutralises spreadsheet formula prefixes.
+Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisation with UUID storage names (traversal-proof); zip-slip guards when ZIP lands; raw store write-once with no overwrite path; no execution of uploaded content; Pydantic validation on every input; parameterized SQL via ORM; evidence text always rendered escaped; evidence treated as data (never as instructions); request logging; report embeds every SHA-256 so a third party can re-verify independently; CSV export neutralises spreadsheet formula prefixes. Report sections are bounded by the documented caps, served from an immutable cache, and rendered with escaped text in the UI (no `dangerouslySetInnerHTML`).
 
 ## 17. Testing strategy
 
-- **Unit:** hashing (known vectors), integrity verified/mismatch, write-once refusal, each parser, normalizer (timestamps/aliases/rejects/dedupe), rule engine positive+negative (per-rule unit tests + catalog assertions), feature windowing determinism, anomaly dual-gate + abstention + seed reproducibility, fusion formula/bands, review workflow transitions, correlation windows/link reasons, timeline ordering, graph generation, assistant intents incl. insufficient-evidence, PDF contains hashes.
+- **Unit:** hashing (known vectors), integrity verified/mismatch, write-once refusal, each parser, normalizer (timestamps/aliases/rejects/dedupe), rule engine positive+negative (per-rule unit tests + catalog assertions), feature windowing determinism, anomaly dual-gate + abstention + seed reproducibility, fusion formula/bands, review workflow transitions, correlation windows/link reasons, timeline ordering, graph generation, assistant intents incl. insufficient-evidence, report sections contain SHA-256 hashes.
+- **Report (Phase 6):** 15-section snapshot shape with section determinism across generations (identity fields excluded), snapshot immutability while a later report reflects new state, integrity status modes (VERIFIED / MISMATCH / NO CHECK AVAILABLE), conclusion modes (no-analysis / insufficient / no-findings / correlation outcomes), title+actor limits (422/201), global `RPT-` sequence, newest-first list, cross-case isolation (404 `REPORT_NOT_FOUND`), malformed-ID 404/422, read-only generation (pipeline rows byte-unchanged), `Report Generated` custody, honest ML abstention wording, banned wording absent.
 - **Parsing unit:** CSV header/encoding fallback/column normalize/row-numbering; JSON object/array/wrapper; detection precedence (JSON wins over extension, declared type, unknown-format errors); timestamp formats incl. epoch, Apache, offsets; normalizer metadata preservation of source-specific fields.
 - **Processing API:** run lifecycle (COMPLETED/PARTIAL/FAILED), record cap warning, integrity mismatch → FAILED run, unknown format → 422 + FAILED, rejects retained with reasons, duplicates marked with `duplicate_of`, reprocessing replaces derived rows (or is skipped with an explanatory warning when history pins them), events list/detail + filter contract.
 - **API:** CRUD + happy/error paths (413/415/404/409).
 - **End-to-end:** demo load → verify → process → analyze → correlate → timeline → graph → assistant → report; asserts Scenario A quiet / C fires; raw hashes unchanged after pipeline; banned terms absent from UI strings.
 - **Regression gate every phase:** `pytest` green + `npm run build` green.
+- **Phase 6 report gate:** a fresh-temp-database script that drives the report endpoints over a real pipeline (empty-case contract, evidence-backed content, generation determinism + snapshot immutability, cross-case isolation and malformed-ID traversal, read-only generation, custody + global `RPT-` sequence, corruption → `INTEGRITY MISMATCH` verdict, synthetic demo marker, and a wording-honesty sweep over every captured report body).
 - **Phase 4.5 core gate:** a fresh-temp-database end-to-end script that drives every API route (upload → verify → process → analyze → correlate → timeline → graph → review → re-run), checks raw-hash immutability (pre == recorded == post), finding/timeline/graph traceability chains, repeatability across two identical pipelines, empty/error/422/404/409 envelopes, append-only history on repeated operations, SQLite table/FK integrity (`PRAGMA foreign_key_check`), the three demo scenarios with honest ML abstention, a terminology harvest over every captured response, and informational performance timings.
 
 ## 18. Risks and limitations
@@ -388,11 +412,12 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | **4** | Reasoned correlation + activity groups + reconstructed timeline + evidence graph + investigation UI | multi-source chains, traceable entries — **DONE** |
 | **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged — **DONE** |
 | **5** | **Investigation assistant** (deterministic, retrieval-first) | example questions answered from evidence; cross-case isolation — **DONE** |
-| 6 | Dashboard | scenario stats |
-| 7 | Report (PDF/JSON) + segment classifier metrics | 16-section report with disclaimers |
-| 8 | Notes (investigator annotations) | persisted annotations in the findings UI |
-| 9 | Demo loader + polish + history | evaluator journey works end-to-end |
-| 10 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–9 green |
+| **6** | **Investigation report layer** (immutable JSON snapshots + print UI) | deterministic 15-section report, snapshots immutable, global sequence, cross-case 404, custody — **DONE** |
+| 7 | Dashboard | scenario stats |
+| 8 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
+| 9 | Notes (investigator annotations) | persisted annotations in the findings UI |
+| 10 | Demo loader + polish + history | evaluator journey works end-to-end |
+| 11 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–10 green |
 
 ## 20. Phase 0 acceptance criteria (all 12) — status
 
@@ -491,6 +516,24 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 12 | Regression gate: `pytest` green (206 tests) + `npm run build` green; docs updated to v1.5; banned terms absent from constants and docs | ✅ |
 | 13 | Deferred (not in Phase 4 as-built): heuristic phase segmentation of the timeline; fusion still uses the Phase 3 correlation proxy (§9.3) | ⚠️ deferred |
 
+### Phase 6 acceptance criteria — status
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | `POST /api/cases/{case_id}/reports` generates and **persists** an immutable JSON snapshot (`InvestigationReport`, 18th table summarised in §6); identity fields (`report_id`, `generated_at`, `title`, `generated_by`) live in metadata only | ✅ |
+| 2 | 15 fixed-order sections (§13.1) built **only from persisted Phase 0–5 data**; sections byte-deterministic across generations with different title/actor; list newest-first | ✅ |
+| 3 | Report IDs `RPT-{n:06d}` from a **single global sequence across cases**; custody `Report Generated` recorded; `case.last_activity` updated; no pipeline table mutated by generation | ✅ |
+| 4 | Detail + `/json` endpoints serve the cached snapshot unchanged; re-generation reads current state and never edits prior snapshots | ✅ |
+| 5 | Integrity section modes: `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` / `NOT VERIFIED` / `NO CHECK AVAILABLE`, latest check wins | ✅ |
+| 6 | Conclusion modes: no-analysis / insufficient / no-findings / with-correlation / no-correlation; high/critical findings append `REPORT_HIGH_SEVERITY_NOTE` | ✅ |
+| 7 | Bounds enforced as module caps (200 findings / 50 traces / 200 correlations / 200 groups / 200 process runs / 50 graph rows) and reported as notes | ✅ |
+| 8 | Demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker; ML abstention and methodology stated honestly; wording never claims authenticity, admissibility, or probability | ✅ |
+| 9 | Cross-case isolation: another case's report (or its `/json`) is 404 `REPORT_NOT_FOUND`; malformed IDs (`RPT-ABC`, percent-encoded traversal, `RPT-000001/../../etc`) are 404/422 | ✅ |
+| 10 | UI: `/cases/{case_id}/reports` (generate + list) and `/cases/{case_id}/reports/{report_id}` (generic section renderer, table fallbacks, truncated hashes, **Print** + dedicated `@media print` stylesheet) | ✅ |
+| 11 | Tests: 23 report tests in `backend/tests/test_reports.py` (backend suite now **253 passed**) | ✅ |
+| 12 | Regression gate: `pytest` green (253 tests) + `npm run build` green + fresh-database `gate_phase6.py` (104 checks) green; docs updated to v1.8; banned terms absent from constants and docs | ✅ |
+| 13 | No new third-party dependencies added in Phase 6 (frontend print uses the browser; backend uses stdlib + existing stack) | ✅ |
+
 ## 21. Changelog — v1.0 → v1.1 corrections (13 items)
 
 1. **Integrity terminology.** SHA-256 is described only as recording and verifying *file integrity*. `INTEGRITY VERIFIED` / `INTEGRITY MISMATCH` mean byte-level match/mismatch with the recorded hash. A standing disclaimer states that hashing does not establish who created or collected a file. Naming is *Evidence Integrity Verification* everywhere (module, page, endpoints `/verify`, `/integrity-test`).
@@ -560,3 +603,12 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 5. **Cross-case isolation (mandatory).** Every query is resolved exclusively against the queried case; asking about another case's finding returns 404 `FINDING_NOT_FOUND` (verified per-intent in tests and in the Phase 5 gate).
 6. **UI.** New `AssistantPage` at `/cases/{case_id}/assistant` (answer panel with evidence/basis/confidence/disclaimer, clickable source chips, suggested questions, append-only history table), App route, and a *Ask assistant →* entry button on the case page. `types/models.ts` + `api/assistant.ts` added; terminology mirror extended.
 7. **Tests + gate.** `backend/tests/test_assistant.py` — 24 new tests (backend suite now 230 passed); fresh-temp-database `gate_phase5.py` run — 119 checks passing end-to-end (schema bounds, empty case, capabilities, unsupported, every data intent over a real pipeline, missing finding 404, cross-case isolation over three question families, append-only case-scoped history, repeatability/determinism).
+
+## 27. Changelog — v1.7 → v1.8 additions (Phase 6 — Investigation report layer)
+
+1. **Report layer implemented (§13.1).** New `services/report_service.py` + `routers/reports.py` + `InvestigationReport` model. `POST /api/cases/{case_id}/reports` builds 15 fixed-order, deterministic sections **read-only** from persisted evidence/processing/analysis/correlation/custody data, stores the JSON snapshot, records `Report Generated` custody, and assigns `RPT-{n:06d}` from a global sequence. Generation never mutates pipeline tables.
+2. **API additions (§15).** `POST /api/cases/{case_id}/reports` (201, `{title? ≤255, actor? ≤127}`), `GET /api/cases/{case_id}/reports` (newest-first summaries), `GET /api/cases/{case_id}/reports/{report_id}` and `.../json` (404 `REPORT_NOT_FOUND` across cases). Preview endpoint intentionally omitted — the detail view plus the browser print route covers it.
+3. **Determinism + immutability contract.** Sections exclude `report_id`/`generated_at`/`title`/`generated_by` so identical DB states produce byte-identical sections (asserted incl. two generations with different title/actor). Stored snapshots are served unchanged by `/json`; later generations read current state and never rewrite earlier snapshots. Caps are module constants (`_REPORT_MAX_*`) surfaced as notes when hit.
+4. **Integrity + honesty wording.** Report integrity section resolves the latest `IntegrityCheck` per evidence (checked-at desc, id desc) into VERIFIED / MISMATCH / NOT VERIFIED / NO CHECK AVAILABLE; conclusion section picks no-analysis / insufficient / no-findings / with- or no-correlation (+ high-severity note). ML statements repeat the statistical-deviation disclaimer, abstention is reported honestly, demo cases carry the `SYNTHETIC / DEMONSTRATION DATA` marker, and a guard asserts no authenticity/admissibility/probability claims in any captured report body.
+5. **UI.** `ReportListPage` (`/cases/{case_id}/reports`) and `ReportDetailPage` (`/cases/{case_id}/reports/{report_id}`) with a generic section renderer (field blocks, key/value grids, object-row tables, truncated hashes), a case-page *Investigation reports* section, and a **Print report** button backed by a dedicated `@media print` stylesheet (`#root` forced white, `.print-hide` chrome removed, `break-inside: avoid`). No `dangerouslySetInnerHTML` and no new frontend dependencies.
+6. **Tests + gate.** `backend/tests/test_reports.py` — 23 new tests (backend suite now **253 passed**); fresh-temp-database `gate_phase6.py` run — **104 checks** passing (empty-case contract, evidence-backed content, determinism + snapshot immutability, scoping/404/caps, read-only generation, custody + global sequence, corruption → `INTEGRITY MISMATCH`, synthetic marker, wording bans). `npm run build` green, `test_terminology` green, docs at v1.8.

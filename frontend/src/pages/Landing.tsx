@@ -20,11 +20,12 @@ const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "S
   { id: "4", label: "Correlation + activity groups + timeline + evidence graph", tier: "Core", done: true },
   { id: "4.5", label: "Core acceptance gate (end-to-end core pipeline)", tier: "Core", done: true },
   { id: "5", label: "Evidence-traceable investigation assistant (deterministic, case-scoped)", tier: "Secondary", done: true },
-  { id: "6", label: "Dashboard", tier: "Secondary", done: false },
-  { id: "7", label: "Report (PDF/JSON) + segment classifier metrics", tier: "Secondary", done: false },
-  { id: "8", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
-  { id: "9", label: "One-click demo case + polish", tier: "Core", done: false },
-  { id: "10", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
+  { id: "6", label: "Investigation report layer (immutable evidence-backed snapshots + print UI)", tier: "Secondary", done: true },
+  { id: "7", label: "Dashboard", tier: "Secondary", done: false },
+  { id: "8", label: "Segment classifier metrics", tier: "Secondary", done: false },
+  { id: "9", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
+  { id: "10", label: "One-click demo case + polish", tier: "Core", done: false },
+  { id: "11", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
 ];
 
 export default function Landing(): JSX.Element {
@@ -60,7 +61,7 @@ export default function Landing(): JSX.Element {
         <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{PRODUCT_CONCEPT}</p>
         <div className="mt-4 flex flex-wrap gap-3 font-mono text-xs">
           <span className={`border border-slate-700 px-2 py-1 ${healthTone}`}>{healthLabel}</span>
-          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–5 · CORE PIPELINE + ASSISTANT</span>
+          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–6 · CORE PIPELINE + ASSISTANT + REPORTS</span>
           <span className="border border-slate-700 px-2 py-1 text-amber-500">{SYNTHETIC_DATA_LABEL}</span>
         </div>
       </header>
@@ -126,12 +127,13 @@ export default function Landing(): JSX.Element {
       <section className="border border-slate-800 bg-slate-900/50 p-5">
         <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-slate-500">Status</h2>
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          Phases 0–4 are implemented: cases and write-once evidence with SHA-256 integrity
+          Phases 0–6 are implemented: cases and write-once evidence with SHA-256 integrity
           verification and chain of custody, parsing and normalization with a processing log,
-          rule-based and ML anomaly analysis with explanations, and cross-source correlation
-          with activity groups, reconstructed timeline, and the evidence graph. Report,
-          assistant, and additional evidence formats arrive in later phases per the roadmap
-          above. API reference:{" "}
+          rule-based and ML anomaly analysis with explanations, cross-source correlation
+          with activity groups, reconstructed timeline, and the evidence graph, a
+          case-scoped investigation assistant, and immutable, evidence-backed investigation
+          reports. Dashboard, segment classifier metrics, notes, and a one-click demo loader
+          arrive in later phases per the roadmap above. API reference:{" "}
           <a className="text-cyan-400 underline" href="/docs" target="_blank" rel="noreferrer">
             /docs
           </a>

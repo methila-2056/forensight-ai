@@ -13,7 +13,7 @@ export default function AppShell(): JSX.Element {
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-200">
       <PrototypeBanner />
-      <header className="border-b border-slate-800 bg-slate-900/70">
+      <header className="print-hide border-b border-slate-800 bg-slate-900/70">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <Link to="/" className="group">
             <span className="font-mono text-lg font-bold tracking-tight text-white group-hover:text-cyan-300">
@@ -46,8 +46,8 @@ export default function AppShell(): JSX.Element {
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-800 px-6 py-4 text-center font-mono text-[10px] uppercase tracking-widest text-slate-600">
-        {PRODUCT_NAME} · Phase 5 · SUTRAM 2026 · Findings from rules and anomaly scores are
+      <footer className="print-hide border-t border-slate-800 px-6 py-4 text-center font-mono text-[10px] uppercase tracking-widest text-slate-600">
+        {PRODUCT_NAME} · Phase 6 · SUTRAM 2026 · Findings from rules and anomaly scores are
         statistical observations — they require investigator validation
       </footer>
     </div>

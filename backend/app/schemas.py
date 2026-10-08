@@ -1,6 +1,6 @@
 """Pydantic request/response schemas (Phase 1: cases, evidence, integrity, custody;
 Phase 2: processing, events; Phase 3: automated analysis, findings, review;
-Phase 5: investigation assistant)."""
+Phase 5: investigation assistant; Phase 6: forensic reports)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from app.models import (
     SourceType,
     TimelineSignificance,
 )
-from app.terminology import HASH_ALGORITHM
+from app.terminology import HASH_ALGORITHM, REPORT_SCHEMA, REPORT_STATUS, REPORT_VERSION
 
 # ---------------------------------------------------------------------------
 # Health
@@ -572,6 +572,45 @@ class AssistantQueryResponse(BaseModel):
     sources: list[AssistantSource] = []
     disclaimer: str = ""
     created_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Forensic reports (Phase 6)
+# ---------------------------------------------------------------------------
+
+class ReportGenerateRequest(BaseModel):
+    """Bounded request to generate one immutable, case-scoped report snapshot."""
+
+    title: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Optional custom title; defaults to the canonical report title",
+    )
+    actor: str = Field(default="investigator", max_length=127)
+
+
+class ReportSummary(BaseModel):
+    """Identity of one report snapshot (list view)."""
+
+    report_id: str
+    case_id: str
+    title: str
+    report_version: str = REPORT_VERSION
+    schema_: str = Field(default=REPORT_SCHEMA, alias="schema")
+    status: str = REPORT_STATUS
+    generated_at: datetime
+    generated_by: str
+
+
+class ReportResponse(ReportSummary):
+    """Full report payload: identity fields plus the deterministic sections.
+
+    ``sections`` is the deterministic report content (15 sections). Two
+    generations from unchanged input data produce identical ``sections``;
+    only the identity fields (report_id, generated_at, generated_by) differ.
+    """
+
+    sections: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------

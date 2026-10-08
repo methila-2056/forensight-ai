@@ -14,7 +14,8 @@ export const PRODUCT_CONCEPT =
   "detects suspicious patterns using transparent rules and explainable machine " +
   "learning, correlates evidence across sources, reconstructs an " +
   "investigator-reviewable timeline, and maintains traceability from findings " +
-  "back to source evidence.";
+  "back to source evidence, and produces immutable, evidence-backed " +
+  "investigation reports.";
 
 export const PROTOTYPE_DISCLAIMER =
   "Research/hackathon prototype - not a certified forensic or legal-admissibility system. " +
@@ -127,3 +128,61 @@ export const TRACEABILITY_STEPS = [
   "Evidence File",
   "Recorded SHA-256",
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Forensic reports (Phase 6) — mirrors backend/app/terminology.py
+// ---------------------------------------------------------------------------
+
+export const REPORT_TITLE = "Digital Forensic Investigation Report";
+export const REPORT_SCHEMA = "FORENSIGHT_REPORT_V1";
+export const REPORT_VERSION = "1.0";
+export const REPORT_STATUS = "Generated";
+export const REPORT_NO_ANALYSIS = "No analysis result is currently available.";
+export const REPORT_TRACE_UNAVAILABLE = "Trace unavailable for this finding.";
+export const REPORT_SYSTEM_ENTRY = "system-generated finding";
+export const REPORT_REVIEW_ENTRY = "investigator-entered assessment";
+
+export const REPORT_INTEGRITY_VERIFIED_EXPLAIN =
+  "The current evidence bytes matched the recorded SHA-256 reference during verification.";
+export const REPORT_INTEGRITY_MISMATCH_EXPLAIN =
+  "The current evidence bytes did not match the recorded SHA-256 reference during verification.";
+export const REPORT_INTEGRITY_NOTE =
+  "SHA-256 matching confirms byte-for-byte equivalence with the recorded reference " +
+  "only; it does not establish who created or collected the evidence.";
+export const REPORT_INTEGRITY_NOT_VERIFIED = "NOT VERIFIED";
+export const REPORT_INTEGRITY_NO_CHECK = "NO CHECK AVAILABLE";
+
+export const REPORT_CONCLUSION_NO_FINDINGS =
+  "No suspicious findings were recorded by the configured forensic analysis pipeline.";
+export const REPORT_CONCLUSION_NO_CORRELATION =
+  "The investigation identified suspicious activity in the analyzed evidence, " +
+  "but no cross-source correlations were recorded.";
+export const REPORT_CONCLUSION_WITH_CORRELATION =
+  "The investigation identified suspicious activity with supporting cross-source " +
+  "relationships in the analyzed evidence.";
+export const REPORT_CONCLUSION_INSUFFICIENT =
+  "The available evidence does not support a definitive conclusion from the current " +
+  "prototype analysis.";
+export const REPORT_HIGH_SEVERITY_NOTE =
+  "High-severity findings require investigator review and contextual interpretation.";
+
+export const REPORT_LIMIT_PROTOTYPE =
+  "FORENSIGHT AI is a research/hackathon prototype, not a certified forensic or " +
+  "legal-admissibility system.";
+export const REPORT_LIMIT_INTEGRITY =
+  "SHA-256 verification only proves the current bytes match the recorded reference; " +
+  "it does not authenticate origin, collection, or custody.";
+export const REPORT_LIMIT_ML =
+  "ML anomaly scores are statistical deviations from this case's typical event pattern; " +
+  "they are not proof of malicious activity.";
+export const REPORT_LIMIT_SCORES =
+  "Composite Suspicion Scores are uncalibrated heuristic composites, not probabilities.";
+export const REPORT_LIMIT_REVIEW =
+  "All findings require investigator review and validation before any action is taken.";
+export const REPORT_LIMIT_DATA =
+  "This report reflects only the evidence ingested and processed in this case up to " +
+  "the generation time.";
+
+export const REPORT_ML_STATEMENT =
+  "The ML component identified statistically unusual activity relative to the configured " +
+  "detection strategy; anomaly scores are not proof of malicious activity.";
