@@ -1,10 +1,10 @@
-"""SQLAlchemy models — schema per Architecture v1.4 (Phases 0–4).
+"""SQLAlchemy models — schema per Architecture v1.6 (Phases 0–5).
 
 Table list:
 cases, evidence, integrity_checks, chain_of_custody, raw_records,
 forensic_events, processing_runs, rule_findings, ml_findings,
 classifier_results, correlations, correlation_runs, investigation_groups,
-investigation_runs, investigator_notes, model_metrics.
+investigation_runs, investigator_notes, assistant_queries, model_metrics.
 
 Note: the normalized-event payload column is named "metadata" at the SQL level
 and exposed as the attribute ``extra`` to avoid clashing with the SQLAlchemy
@@ -537,6 +537,32 @@ class InvestigatorNote(Base):
     author: Mapped[str] = mapped_column(String(127), nullable=False, default="investigator")
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+
+class AssistantQuery(Base):
+    """One append-only assistant question/answer pair for a case (Phase 5).
+
+    History is case-scoped and never rewritten: repeated questions append new
+    rows rather than overwriting a previous response. Only the question, the
+    resolved intent, the generated answer, the deterministic evidence/basis
+    lines, confidence, and source references are stored — no raw evidence
+    content is copied into the history.
+    """
+
+    __tablename__ = "assistant_queries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    intent: Mapped[str] = mapped_column(String(48), nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    basis: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(16), nullable=False, default="LOW")
+    sources: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    case: Mapped["Case"] = relationship("Case")
 
 
 class ModelMetric(Base):

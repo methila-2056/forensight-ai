@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import AssistantPage from "./pages/AssistantPage";
 import CaseDetailPage from "./pages/CaseDetailPage";
 import CaseListPage from "./pages/CaseListPage";
 import CreateCasePage from "./pages/CreateCasePage";
@@ -27,6 +28,7 @@ export default function App(): JSX.Element {
             path="/cases/:caseId/investigation"
             element={<InvestigationPage />}
           />
+          <Route path="/cases/:caseId/assistant" element={<AssistantPage />} />
           <Route path="/cases/:caseId" element={<CaseDetailPage />} />
         </Route>
       </Routes>

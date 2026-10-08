@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.6
+# FORENSIGHT AI — Architecture v1.7
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0–4 implemented, Phase 4.5 core acceptance gate passed · This document is the approved specification for all subsequent phases.
+Status: Phases 0–5 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate passed · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -115,8 +115,9 @@ The ladder is rendered in the finding detail panel, in timeline/graph click-thro
 | `investigator_notes` | Investigator annotations | author, body, finding_uid |
 | `model_metrics` | Real evaluation results | precision, recall, f1, feature_list, dataset_desc |
 | `processing_runs` | Parse/normalize runs | run_id, evidence_id, parser, status, received/normalized/rejected/duplicates, warnings, error, timestamps |
+| `assistant_queries` | Assistant Q&A (Phase 5, append-only) | query_id, case_id, question, intent, answer, evidence refs, basis, confidence, sources JSON, disclaimer, actor, created_at |
 
-Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent` and `Evidence 1→N ProcessingRun`; every finding carries event-ID and evidence-ID arrays for direct traceability.
+Relationships: `Case 1→N Evidence 1→N RawRecord/ForensicEvent` and `Evidence 1→N ProcessingRun`; every finding carries event-ID and evidence-ID arrays for direct traceability; `assistant_queries` is case-scoped and never rewritten (repeated questions append new rows).
 
 ## 7. Evidence integrity verification (terminology contract)
 
@@ -246,7 +247,7 @@ Every link carries an explicit, evidence-backed reason. Temporal association is 
 - Heuristic phase segmentation: *Initial Access / Execution / Impact / Exfiltration / Benign Context* (ATT&CK-style labels, described as heuristic).
 - Label: **"Reconstructed Investigation Timeline"** with the note: *"A reconstruction derived from the evidence available in this case. It is not an established sequence of events."*
 
-## 13. AI investigation assistant (deterministic, retrieval-first)
+## 13. AI investigation assistant (deterministic, retrieval-first) — implemented, Phase 5
 
 1. Classify the question into supported intents (what happened / suspicious events / evidence for hypothesis / what preceded X / users / IPs / support finding).
 2. Execute parameterized queries against actual case data.
@@ -255,6 +256,8 @@ Every link carries an explicit, evidence-backed reason. Temporal association is 
 5. If the data does not support an answer: **"Insufficient evidence in the current case."**
 
 No generative model is enabled. An optional LLM adapter interface exists but is **disabled and labelled "Prototype / Planned"**. Footer: *"Answers are constructed only from processed case evidence. No generative model is enabled."*
+
+**As-built (v1.7, Phase 5):** a closed 14-intent catalog (`CASE_SUMMARY, TOP_FINDINGS, FINDING_EXPLANATION, FINDING_TRACE, EVIDENCE_SUPPORT, TIMELINE_CONTEXT, CORRELATION_SUMMARY, GROUP_SUMMARY, ML_EXPLANATION, REVIEW_QUEUE, INTEGRITY_STATUS, PROCESSING_STATUS` + control intents `CAPABILITIES, UNKNOWN`) with deterministic keyword/regex classification; every answer is reconstructed from bounded, case-scoped queries that reuse the analysis/correlation/processing services, and carries `evidence`, `basis`, a confidence band (`HIGH/MEDIUM/LOW`), clickable `sources`, and the standing footer. Unsupported questions return a fixed deterministic message; an empty case returns *"No forensic evidence is currently available for this case."* for all intents except CAPABILITIES/UNKNOWN. Finding references are extracted case-insensitively and uppercased; a reference that does not exist in the case returns a structured `FINDING_NOT_FOUND` 404 — never data from another case. Every query is persisted append-only in `assistant_queries` (case-scoped, 17th table), repeated questions append new rows, and history answers are served newest-first. The ML explanation intent states plainly that the score reflects statistical deviation and is not proof — SHA-256 confirms the file is unchanged and implies nothing about authenticity or admissibility.
 
 ## 14. Demo scenarios (synthetic, seeded, labelled)
 
@@ -327,11 +330,19 @@ Files per scenario: `authentication.csv, process.csv, file_activity.csv, network
 | GET | `/api/cases/{case_id}/timeline` | Reconstructed Investigation Timeline (significance from findings; `TIMELINE_MAX_ENTRIES` cap) |
 | GET | `/api/cases/{case_id}/graph` | Evidence graph (capped nodes/edges + `table_rows` fallback) |
 
+**Implemented (Phase 5):**
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/cases/{case_id}/assistant/query` | Ask the deterministic assistant (question ≤ 1000 chars, actor ≤ 127); returns intent, answer, evidence, basis, confidence, sources, disclaimer (201) |
+| GET | `/api/cases/{case_id}/assistant/history` | Append-only query history for the case (newest first; limit 1–500, default 100) |
+| GET | `/api/cases/{case_id}/assistant/queries/{query_id}` | One stored answer (404 `ASSISTANT_QUERY_NOT_FOUND` if not in this case) |
+
 **Planned (later phases, subject to scope tiers):**
 
 ```
 GET  /api/evidence/{ev_id}[/download|/records]
-POST /api/cases/{id}/assistant              POST /api/cases/{id}/notes
+POST /api/cases/{id}/notes
 POST /api/cases/{id}/report                 POST /api/demo/load
 ```
 
@@ -376,11 +387,12 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | **3** | Rules + Strategy A anomaly detection + fusion + findings UI | Scenario C fires, Scenario A quiet, findings reviewable — **DONE** |
 | **4** | Reasoned correlation + activity groups + reconstructed timeline + evidence graph + investigation UI | multi-source chains, traceable entries — **DONE** |
 | **4.5** | **Core acceptance gate** | e2e core pipeline green, raw hashes unchanged — **DONE** |
-| 5 | Dashboard | scenario stats |
-| 6 | Report (PDF/JSON) + segment classifier metrics | 16-section report with disclaimers |
-| 7 | Notes + assistant | example questions answered from evidence |
-| 8 | Demo loader + polish + history | evaluator journey works end-to-end |
-| 9 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–8 green |
+| **5** | **Investigation assistant** (deterministic, retrieval-first) | example questions answered from evidence; cross-case isolation — **DONE** |
+| 6 | Dashboard | scenario stats |
+| 7 | Report (PDF/JSON) + segment classifier metrics | 16-section report with disclaimers |
+| 8 | Notes (investigator annotations) | persisted annotations in the findings UI |
+| 9 | Demo loader + polish + history | evaluator journey works end-to-end |
+| 10 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–9 green |
 
 ## 20. Phase 0 acceptance criteria (all 12) — status
 
@@ -538,3 +550,13 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 3. **UI status copy corrected.** Landing roadmap marks Phases 2–4 `done`, badge reads `PHASES 0–4 · CORE PIPELINE`, the status paragraph matches the implemented surface, and the app-shell footer says Phase 4.
 4. **Finding paths corrected in docs.** Finding detail, trace, and PATCH are case-scoped (`/api/cases/{case_id}/findings/{finding_id}…`); investigator notes are embedded in the finding detail response (no standalone notes endpoint). §15 and the README API table were corrected accordingly.
 5. **Known limitations carried forward.** Fusion still uses the Phase 3 proxy (§9.3, §24 item 8); timeline phase segmentation and per-entry raw-record IDs remain deferred (§24 item 4).
+
+## 26. Changelog — v1.6 → v1.7 additions (Phase 5 — Investigation assistant)
+
+1. **Assistant implemented (§13).** New `backend/app/assistant/` package (`intents`, `retrieval`, `context`, `answerer`, `service`) and `routers/assistant.py`. Closed 14-intent deterministic classifier (keyword + regex) with case-insensitive anchor extraction (`RFND-`/`MFND-`/`EVT-`/`COR-`/`GRP-`/`HH:MM`); every answer is rebuilt via bounded case-scoped queries that reuse the existing analysis/correlation/case/processing services — no generative model, no LLM dependency, strictly deterministic. All canonical answer wording lives in `terminology.py` (guard-safe).
+2. **API additions (§15).** `POST /api/cases/{case_id}/assistant/query` (201), `GET /api/cases/{case_id}/assistant/history` (limit 1–500, default `ASSISTANT_HISTORY_LIMIT` 100), `GET /api/cases/{case_id}/assistant/queries/{query_id}`. Error codes: `FINDING_NOT_FOUND` / `ASSISTANT_QUERY_NOT_FOUND` / `CASE_NOT_FOUND` (404), `EMPTY_QUESTION` and length validation (422). Limits: question ≤ `ASSISTANT_MAX_QUESTION_LENGTH` 1000, actor ≤ 127, retrieval bounded by `ASSISTANT_TOP_N` 10.
+3. **History table.** `assistant_queries` (17th table) is append-only and case-scoped; repeated questions append new rows; persisted intent/answer/evidence/basis/confidence/sources/disclaimer; history newest-first.
+4. **Honesty contract.** Empty case → `ASSISTANT_EMPTY_CASE` for all intents except `CAPABILITIES`/`UNKNOWN`; `UNKNOWN` → `ASSISTANT_UNSUPPORTED` even on an empty case; ML explanation plainly states the score is statistical deviation, not proof; every evidence-backed answer carries the standing footer ("Answers are constructed only from processed case evidence. No generative model is enabled."); SHA-256 status implies nothing about authenticity/admissibility.
+5. **Cross-case isolation (mandatory).** Every query is resolved exclusively against the queried case; asking about another case's finding returns 404 `FINDING_NOT_FOUND` (verified per-intent in tests and in the Phase 5 gate).
+6. **UI.** New `AssistantPage` at `/cases/{case_id}/assistant` (answer panel with evidence/basis/confidence/disclaimer, clickable source chips, suggested questions, append-only history table), App route, and a *Ask assistant →* entry button on the case page. `types/models.ts` + `api/assistant.ts` added; terminology mirror extended.
+7. **Tests + gate.** `backend/tests/test_assistant.py` — 24 new tests (backend suite now 230 passed); fresh-temp-database `gate_phase5.py` run — 119 checks passing end-to-end (schema bounds, empty case, capabilities, unsupported, every data intent over a real pipeline, missing finding 404, cross-case isolation over three question families, append-only case-scoped history, repeatability/determinism).

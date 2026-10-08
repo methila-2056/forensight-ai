@@ -131,6 +131,18 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
+# ---------------------------------------------------------------------------
+# Investigation assistant (Phase 5) — deterministic, retrieval-first
+# ---------------------------------------------------------------------------
+
+# Question length cap (validated by the request schema).
+ASSISTANT_MAX_QUESTION_LENGTH = int(os.getenv("ASSISTANT_MAX_QUESTION_LENGTH", "1000"))
+# Newest-first history returned per case; persisted history is never rewritten.
+ASSISTANT_HISTORY_LIMIT = int(os.getenv("ASSISTANT_HISTORY_LIMIT", "100"))
+# Bounded retrieval: maximum number of findings/correlations/groups cited in
+# one answer (the pipeline's own caps still apply to timeline and graph).
+ASSISTANT_TOP_N = int(os.getenv("ASSISTANT_TOP_N", "10"))
+
 
 def ensure_directories() -> None:
     """Create runtime directories that are git-ignored."""

@@ -1,5 +1,6 @@
 """Pydantic request/response schemas (Phase 1: cases, evidence, integrity, custody;
-Phase 2: processing, events; Phase 3: automated analysis, findings, review)."""
+Phase 2: processing, events; Phase 3: automated analysis, findings, review;
+Phase 5: investigation assistant)."""
 
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app import config
 from app.models import (
     CaseStatus,
     CorrelationType,
@@ -529,6 +531,47 @@ class GraphResponse(BaseModel):
     max_edges: int = 0
     disclaimer: str = ""
     note: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Investigation assistant (Phase 5)
+# ---------------------------------------------------------------------------
+
+class AssistantQueryRequest(BaseModel):
+    """A bounded free-text question to the investigation assistant."""
+
+    question: str = Field(
+        min_length=1,
+        max_length=config.ASSISTANT_MAX_QUESTION_LENGTH,
+        description="The question. Long or blank questions are rejected by the schema.",
+    )
+    actor: str = Field(default="investigator", max_length=127)
+
+
+class AssistantSource(BaseModel):
+    """A clickable, case-scoped reference cited by an answer."""
+
+    type: Literal[
+        "finding", "event", "evidence", "correlation", "group", "case", "run"
+    ]
+    id: str
+    label: str = ""
+
+
+class AssistantQueryResponse(BaseModel):
+    """A persisted assistant question/answer pair (append-only history)."""
+
+    query_id: int
+    case_id: str
+    question: str
+    intent: str
+    answer: str
+    evidence: list[str] = []
+    basis: list[str] = []
+    confidence: Literal["HIGH", "MEDIUM", "LOW"]
+    sources: list[AssistantSource] = []
+    disclaimer: str = ""
+    created_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------

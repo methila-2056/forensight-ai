@@ -96,6 +96,29 @@ export const DEMO_LABEL = "SYNTHETIC / DEMONSTRATION DATA";
 export const ASSISTANT_FOOTER =
   "Answers are constructed only from processed case evidence. No generative model is enabled.";
 
+export const ASSISTANT_INSUFFICIENT =
+  "I could not find sufficient evidence in this case to answer that question.";
+
+export const ASSISTANT_UNSUPPORTED =
+  "This question is outside the currently supported investigation assistant capabilities.";
+
+export const ASSISTANT_EMPTY_CASE =
+  "No forensic evidence is currently available for this case.";
+
+export const ASSISTANT_CAPABILITIES =
+  "I can currently answer questions about:\n" +
+  "• case summary\n" +
+  "• suspicious findings\n" +
+  "• finding explanations\n" +
+  "• evidence support\n" +
+  "• timeline activity\n" +
+  "• correlations\n" +
+  "• investigation groups\n" +
+  "• ML anomaly reasoning\n" +
+  "• evidence integrity\n" +
+  "• processing status\n" +
+  "• investigator review status";
+
 export const TRACEABILITY_STEPS = [
   "Finding",
   "Reason",

@@ -152,10 +152,39 @@ TRACEABILITY_STEPS = (
 )
 
 # ---------------------------------------------------------------------------
-# Assistant
+# Assistant (Phase 5) — deterministic answer wording
 # ---------------------------------------------------------------------------
 
 INSUFFICIENT_EVIDENCE = "Insufficient evidence in the current case."
+ASSISTANT_INSUFFICIENT = (
+    "I could not find sufficient evidence in this case to answer that question."
+)
+ASSISTANT_UNSUPPORTED = (
+    "This question is outside the currently supported investigation assistant "
+    "capabilities."
+)
+ASSISTANT_EMPTY_CASE = (
+    "No forensic evidence is currently available for this case."
+)
+ASSISTANT_CAPABILITIES = (
+    "I can currently answer questions about:\n"
+    "• case summary\n"
+    "• suspicious findings\n"
+    "• finding explanations\n"
+    "• evidence support\n"
+    "• timeline activity\n"
+    "• correlations\n"
+    "• investigation groups\n"
+    "• ML anomaly reasoning\n"
+    "• evidence integrity\n"
+    "• processing status\n"
+    "• investigator review status"
+)
+ASSISTANT_FINDING_NOTE = (
+    "Findings are evidence-backed analytical results produced by the "
+    "automated analysis; they are not automatic legal conclusions and always "
+    "require investigator review."
+)
 PLANNED_LABEL = "Prototype / Planned"
 DEMO_LABEL = "SYNTHETIC / DEMONSTRATION DATA"
 

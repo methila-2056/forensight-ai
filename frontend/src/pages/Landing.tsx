@@ -17,10 +17,14 @@ const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "S
   { id: "1", label: "Case management, evidence upload, integrity verification", tier: "Core", done: true },
   { id: "2", label: "Parsing + normalization + processing log", tier: "Core", done: true },
   { id: "3", label: "Rule engine + ML anomaly detection + explanations", tier: "Core", done: true },
-  { id: "4", label: "Correlation + reconstructed timeline + dashboard", tier: "Core", done: true },
-  { id: "5–7", label: "Evidence graph and finding notes (delivered); report, assistant", tier: "Secondary", done: false },
-  { id: "8", label: "One-click demo case + polish", tier: "Core", done: false },
-  { id: "9", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
+  { id: "4", label: "Correlation + activity groups + timeline + evidence graph", tier: "Core", done: true },
+  { id: "4.5", label: "Core acceptance gate (end-to-end core pipeline)", tier: "Core", done: true },
+  { id: "5", label: "Evidence-traceable investigation assistant (deterministic, case-scoped)", tier: "Secondary", done: true },
+  { id: "6", label: "Dashboard", tier: "Secondary", done: false },
+  { id: "7", label: "Report (PDF/JSON) + segment classifier metrics", tier: "Secondary", done: false },
+  { id: "8", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
+  { id: "9", label: "One-click demo case + polish", tier: "Core", done: false },
+  { id: "10", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
 ];
 
 export default function Landing(): JSX.Element {
@@ -56,7 +60,7 @@ export default function Landing(): JSX.Element {
         <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{PRODUCT_CONCEPT}</p>
         <div className="mt-4 flex flex-wrap gap-3 font-mono text-xs">
           <span className={`border border-slate-700 px-2 py-1 ${healthTone}`}>{healthLabel}</span>
-          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–4 · CORE PIPELINE</span>
+          <span className="border border-slate-700 px-2 py-1 text-slate-400">PHASES 0–5 · CORE PIPELINE + ASSISTANT</span>
           <span className="border border-slate-700 px-2 py-1 text-amber-500">{SYNTHETIC_DATA_LABEL}</span>
         </div>
       </header>

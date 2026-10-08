@@ -271,12 +271,20 @@ export default function CaseDetailPage(): JSX.Element {
             </span>
           </div>
         </div>
-        <Link
-          to="/cases"
-          className="border border-slate-700 px-4 py-2 font-mono text-xs uppercase tracking-widest text-slate-400 hover:text-slate-200"
-        >
-          ← All cases
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to={`/cases/${caseId}/assistant`}
+            className="border border-cyan-700 bg-cyan-950/60 px-4 py-2 font-mono text-xs uppercase tracking-widest text-cyan-300 hover:bg-cyan-900/60"
+          >
+            Ask assistant →
+          </Link>
+          <Link
+            to="/cases"
+            className="border border-slate-700 px-4 py-2 font-mono text-xs uppercase tracking-widest text-slate-400 hover:text-slate-200"
+          >
+            ← All cases
+          </Link>
+        </div>
       </div>
 
       <section className="border border-slate-800 bg-slate-900/50 p-5">

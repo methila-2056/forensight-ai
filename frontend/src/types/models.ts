@@ -635,3 +635,58 @@ export const TIMELINE_SIGNIFICANCE_OPTIONS: Array<{
   { value: "NOTABLE", label: "Notable (ML / anomalous)" },
   { value: "NORMAL", label: "Normal (context / correlation)" },
 ];
+
+// ---------------------------------------------------------------------------
+// Investigation assistant (Phase 5)
+// ---------------------------------------------------------------------------
+
+export type AssistantIntent =
+  | "CASE_SUMMARY"
+  | "TOP_FINDINGS"
+  | "FINDING_EXPLANATION"
+  | "FINDING_TRACE"
+  | "EVIDENCE_SUPPORT"
+  | "TIMELINE_CONTEXT"
+  | "CORRELATION_SUMMARY"
+  | "GROUP_SUMMARY"
+  | "ML_EXPLANATION"
+  | "REVIEW_QUEUE"
+  | "INTEGRITY_STATUS"
+  | "PROCESSING_STATUS"
+  | "CAPABILITIES"
+  | "UNKNOWN";
+
+export type AssistantConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export interface AssistantSource {
+  type: "finding" | "event" | "evidence" | "correlation" | "group" | "case" | "run";
+  id: string;
+  label: string;
+}
+
+export interface AssistantQueryResult {
+  query_id: number;
+  case_id: string;
+  question: string;
+  intent: AssistantIntent;
+  answer: string;
+  evidence: string[];
+  basis: string[];
+  confidence: AssistantConfidence;
+  sources: AssistantSource[];
+  disclaimer: string;
+  created_at: string | null;
+}
+
+export const ASSISTANT_SUGGESTED_QUESTIONS = [
+  "What suspicious activity was detected?",
+  "Why was this activity considered suspicious?",
+  "Which evidence files support this finding?",
+  "What happened around the suspicious login?",
+  "Which user account was involved?",
+  "What correlations were detected?",
+  "Which findings still need investigator review?",
+  "Why did the ML model flag this activity?",
+  "Have all evidence files been verified?",
+  "What is the processing status?",
+] as const;
