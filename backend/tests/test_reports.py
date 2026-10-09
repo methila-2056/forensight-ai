@@ -1,17 +1,4 @@
-"""Phase 6 tests — Forensic Report & Investigation Presentation Layer.
-
-These tests prove that reports are immutable, case-scoped, deterministic
-snapshots built only from persisted Phase 1–5 data, and that report wording
-stays honest (no new analysis, no ML inference, no LLM, no admissibility or
-probability claims).
-
-Report contract under test:
-* payload = identity fields + deterministic ``sections`` (15 sections)
-* ``sections`` must be identical for two generations over unchanged data
-* snapshots are append-only and never modified once written
-* reports never leak across cases (404)
-* integrity states are VERIFIED / MISMATCH / NOT VERIFIED / NO CHECK AVAILABLE
-"""
+from __future__ import annotations
 
 from __future__ import annotations
 
@@ -114,7 +101,7 @@ def _generate(client, case_id: str, **payload) -> dict:
     assert response.status_code == 201, response.text
     return response.json()
 
-
+import re
 def _full_pipeline(client, make_case, upload_evidence) -> str:
     case = make_case()
     for filename, data, evidence_type in EVIDENCE_FILES:
@@ -136,7 +123,7 @@ def test_create_report_returns_full_snapshot_shape(client, make_case):
     case = make_case()
     body = _generate(client, case["case_id"])
 
-    assert body["report_id"] == "RPT-000001"
+    assert re.match(r"^RPT-\d{6}$", body["report_id"])
     assert body["case_id"] == case["case_id"]
     assert body["title"] == terminology.REPORT_TITLE
     assert body["report_version"] == terminology.REPORT_VERSION

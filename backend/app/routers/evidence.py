@@ -59,8 +59,8 @@ async def upload_evidence(
     case_id: str,
     file: UploadFile = File(..., description="Evidence file (csv, json, txt, log, zip)"),
     evidence_type: str = Form(default="generic", description="authentication|process|file_activity|network|browser|system|generic"),
-    source: str = Form(default="", description="Where the evidence came from"),
-    actor: str = Form(default="system"),
+    source: str = Form(default="", max_length=4000, description="Where the evidence came from"),
+    actor: str = Form(default="system", max_length=127),
     db: Session = Depends(get_db),
 ) -> EvidenceResponse:
     case = case_service.get_case(db, case_id)
@@ -103,7 +103,7 @@ def get_evidence(evidence_id: str, db: Session = Depends(get_db)) -> EvidenceRes
 )
 def verify_evidence(
     evidence_id: str,
-    actor: str = Query(default="system"),
+    actor: str = Query(default="system", max_length=127),
     db: Session = Depends(get_db),
 ) -> IntegrityVerifyResponse:
     """Recomputes SHA-256 of the stored original and compares it with the
@@ -119,7 +119,7 @@ def verify_evidence(
 )
 def controlled_integrity_test(
     evidence_id: str,
-    actor: str = Query(default="system"),
+    actor: str = Query(default="system", max_length=127),
     db: Session = Depends(get_db),
 ) -> IntegrityTestResponse:
     """Copies the evidence, modifies ONLY the copy, and hashes it to demonstrate
