@@ -12,9 +12,10 @@ from app.models import (
     Case,
     ChainOfCustody,
     Evidence,
-    FindingStatus,
+FindingStatus,
     ForensicEvent,
     InvestigationRun,
+    InvestigatorNote,
     MlFinding,
     ProcessingRun,
     RuleFinding,
@@ -31,7 +32,9 @@ from app.schemas import (
     FindingDetailResponse,
     FindingEvidenceResponse,
     FindingNoteResponse,
-    FindingSummary,
+FindingSummary,
+    NoteListResponse,
+    NoteResponse,
     ProcessingRunResponse,
     RawRecordResponse,
 )
@@ -81,6 +84,28 @@ def evidence_response(evidence: Evidence, case: Case) -> EvidenceResponse:
         record_count=evidence.record_count,
         parse_ok=evidence.parse_ok,
         parse_rejected=evidence.parse_rejected,
+    )
+
+
+def note_response(case: Case, note: InvestigatorNote) -> NoteResponse:
+    return NoteResponse(
+        case_id=case.case_id,
+        note_id=note.id,
+        finding_uid=note.finding_uid,
+        author=note.author,
+        body=note.body,
+        created_at=note.created_at,
+    )
+
+
+def note_list_response(
+    case: Case, notes: list[InvestigatorNote], *, limit: int
+) -> NoteListResponse:
+    return NoteListResponse(
+        notes=[note_response(case, note) for note in notes],
+        total=len(notes),
+        limit=limit,
+        append_only=True,
     )
 
 

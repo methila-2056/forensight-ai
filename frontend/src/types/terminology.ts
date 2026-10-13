@@ -227,3 +227,14 @@ export const INTEGRITY_UNVERIFIED = "Unverified";
 export const INTEGRITY_PARTIAL = "Partially verified";
 export const INTEGRITY_LATEST_VERIFIED = "Verified";
 export const INTEGRITY_LATEST_MISMATCH = "Mismatch";
+
+// ---------------------------------------------------------------------------
+// Investigator notes (Phase 10) - analyst annotations, append-only
+// ---------------------------------------------------------------------------
+
+export const NOTES_PANEL_TITLE = "Investigator notes";
+export const NOTES_APPEND_ONLY_LABEL =
+  "Analyst annotations - append-only. Notes cannot be edited or deleted, and " +
+  "a note is an analyst judgement, not an automated conclusion.";
+export const NOTES_EMPTY =
+  "No notes yet. Record an observation, follow-up action, or context for this case.";

@@ -18,6 +18,7 @@ import { CaseStatusBadge, EvidenceStatusBadge, IntegrityResultBadge, ProcessingS
 import CustodyLog from "../components/CustodyLog";
 import ErrorBox from "../components/ErrorBox";
 import HashBadge from "../components/HashBadge";
+import NotesPanel from "../components/NotesPanel";
 import { formatBytes, formatDateTime } from "../state/format";
 import {
   CASE_STATUS_OPTIONS,
@@ -874,6 +875,10 @@ export default function CaseDetailPage(): JSX.Element {
           </div>
         </section>
       )}
+
+      <section className="border border-slate-800 bg-slate-900/50 p-5">
+        <NotesPanel caseId={caseId} author={caseData?.investigator || "investigator"} />
+      </section>
 
       <section className="border border-slate-800 bg-slate-900/50 p-5">
         <CustodyLog events={caseCustody} title="Case chain of custody" />

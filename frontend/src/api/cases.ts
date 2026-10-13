@@ -1,7 +1,13 @@
-/** Case endpoints (Phase 1). */
+/** Case endpoints (Phase 1, investigator notes in Phase 10). */
 
 import { apiGet, apiPatch, apiPost } from "./client";
-import type { CaseCreatePayload, CaseSummary, CustodyEvent } from "../types/models";
+import type {
+  CaseCreatePayload,
+  CaseSummary,
+  CustodyEvent,
+  NoteList,
+  NoteSummary,
+} from "../types/models";
 
 export const listCases = (): Promise<CaseSummary[]> => apiGet("/api/cases");
 
@@ -18,3 +24,19 @@ export const updateCase = (
 
 export const getCaseCustody = (caseId: string): Promise<CustodyEvent[]> =>
   apiGet(`/api/cases/${encodeURIComponent(caseId)}/custody`);
+
+/* Investigator notes — append-only. There is deliberately no update or
+   delete helper: a recorded annotation cannot be edited away. */
+
+export const getCaseNotes = (caseId: string): Promise<NoteList> =>
+  apiGet(`/api/cases/${encodeURIComponent(caseId)}/notes`);
+
+export const getFindingNotes = (caseId: string, findingId: string): Promise<NoteList> =>
+  apiGet(
+    `/api/cases/${encodeURIComponent(caseId)}/notes?finding_uid=${encodeURIComponent(findingId)}`,
+  );
+
+export const addCaseNote = (
+  caseId: string,
+  payload: { body: string; author?: string; finding_uid?: string },
+): Promise<NoteSummary> => apiPost(`/api/cases/${encodeURIComponent(caseId)}/notes`, payload);

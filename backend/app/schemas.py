@@ -313,6 +313,35 @@ class FindingNoteResponse(BaseModel):
     created_at: datetime
 
 
+# Investigator notes (Phase 10) ---------------------------------------------
+
+
+class NoteCreateRequest(BaseModel):
+    """One append-only investigator annotation."""
+
+    body: str = Field(min_length=1, max_length=4000)
+    author: str = Field(default="investigator", max_length=127)
+    # Optional pin to a finding in this case (RFND- or MFND-).
+    finding_uid: Optional[str] = Field(default=None, max_length=48)
+
+
+class NoteResponse(BaseModel):
+    case_id: str
+    note_id: int
+    finding_uid: Optional[str] = None
+    author: str
+    body: str
+    created_at: datetime
+
+
+class NoteListResponse(BaseModel):
+    notes: list[NoteResponse] = []
+    total: int
+    limit: int
+    # Notes are append-only; stated so the UI does not offer edit/delete.
+    append_only: bool = True
+
+
 class FindingEvidenceResponse(BaseModel):
     evidence_id: str
     original_filename: str

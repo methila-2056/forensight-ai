@@ -42,9 +42,9 @@ The chain is visible in the UI, in assistant answers, and in the generated repor
 
 **MUST-HAVE CORE** — case management · evidence upload · SHA-256 integrity verification · evidence metadata · parsing · normalization · rule engine · ML anomaly detection · multi-source correlation · timeline reconstruction · evidence traceability · basic dashboard · demo scenario.
 
-**SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)** · **advanced analyst workspace (read-only investigation console) — implemented (Phase 8)** · investigator notes.
+**SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)** · **advanced analyst workspace (read-only investigation console) — implemented (Phase 8)** · **investigator notes (append-only annotations, pinnable to findings — implemented, Phase 10)**.
 
-**STRETCH** — Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · advanced scalability.
+**STRETCH** — **ZIP container evidence (per-member expansion with provenance and decompression-bomb guards — implemented)** · Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · advanced scalability.
 
 Cut order if time is limited: Stretch → Secondary → never Core.
 
@@ -61,11 +61,11 @@ forensight-ai/
 │   │   ├── config.py · db.py · models.py · schemas.py
 │   │   ├── terminology.py     # canonical wording + banned-term guard
 │   │   ├── routers/           # health, cases, evidence, processing, events, analysis, correlation, assistant, reports, workspace
-│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis, correlation, report, workspace
+│   │   ├── services/          # case, evidence, integrity, custody, processing, analysis, correlation, report, workspace, notes
 │   │   ├── storage/raw_store.py  # write-once raw evidence store
 │   │   ├── security/uploads.py   # Phase 1: upload validation
-│   │   └── engines/           # parsing, rules, ml implemented; assistant/ implemented
-│   │                          # report implemented (services/report_service); notes, demo (later phases)
+│   │   └── engines/           # parsing (incl. ZIP container), rules, ml implemented; assistant/ implemented
+│   │                          # report implemented (services/report_service); notes implemented (Phase 10); demo loader (later phase)
 │   ├── tests/                 # pytest suite (terminology, raw store, API, models,
 │   │                          # timestamps, parsers, processing, analysis, assistant, reports, demo datasets)
 │   ├── data/                  # SQLite db (git-ignored)
@@ -219,10 +219,12 @@ Planned endpoints for later phases are listed in [ARCHITECTURE.md](ARCHITECTURE.
 | 6 | **Investigation report layer** — immutable evidence-backed snapshots + print UI | Secondary |
 | 7 | Dashboard — read-only scenario statistics + per-case KPIs | Secondary |
 | 8 | **Advanced analyst workspace** — read-only investigation console (overview, evidence, findings + review, timeline, correlations, groups, graph, assistant, reports; deep links) | Secondary |
-| 9 | Segment classifier metrics | Secondary |
-| 10 | Notes (investigator annotations) | Secondary |
-| 11 | One-click demo case + polish | Core polish |
-| 12 | Stretch items only if 0–11 are green | Stretch |
+| 9a | **Security, performance & reliability hardening** — bounded inputs, immutability, DB reliability | Core |
+| 9b | Segment classifier metrics | Secondary |
+| 10 | **Investigator notes** — append-only annotations, case-scoped, pinnable to findings | Secondary |
+| 11 | Demo loader + polish + final presentation | Core polish |
+| 12a | **ZIP container evidence** — per-member expansion, provenance, decompression-bomb guards | Stretch |
+| 12b | EVTX / PCAP / optional LLM adapter | Stretch |
 
 ## Attribution
 

@@ -1,7 +1,7 @@
-# FORENSIGHT AI — Architecture v1.10
+# FORENSIGHT AI — Architecture v1.12
 
 **AI-Powered Digital Forensics Investigation Framework** · SUTRAM 2026
-Status: Phases 0–8 implemented, Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed · This document is the approved specification for all subsequent phases.
+Status: Phases 0–8 implemented; Phase 4.5 core acceptance gate + Phase 5 assistant gate + Phase 6 report gate passed; Phase 9 (security & reliability hardening), Phase 10 (investigator notes), and Phase 12 (ZIP container evidence) added · This document is the approved specification for all subsequent phases.
 
 **Standing disclaimers (appear in UI, API description, and report):**
 
@@ -329,6 +329,7 @@ Scenario shapes: **A** routine office activity only. **B** failed-login burst �
 | POST/GET | `/api/cases` | Create / list cases |
 | GET/PATCH | `/api/cases/{case_id}` | Case detail / status+severity update |
 | GET | `/api/cases/{case_id}/custody` | Case-level chain of custody |
+| POST/GET | `/api/cases/{case_id}/notes` | Append an investigator note / list notes (append-only; `finding_uid` filter) |
 | POST/GET | `/api/cases/{case_id}/evidence` | Upload evidence / inventory |
 | GET | `/api/evidence/{evidence_id}` | Evidence detail incl. recorded SHA-256 |
 | POST | `/api/evidence/{evidence_id}/verify` | Evidence Integrity Verification |
@@ -428,6 +429,9 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 - **Dashboard (Phase 7):** 6 tests asserting every global and per-case figure equals the persisted-row counts cross-checked directly against the DB, an empty/no-pipeline case reports explicit zeros, the full pipeline aggregates match persisted deltas, demo-marked and raw-record-marker cases expose `DEMO_LABEL` (`SYNTHETIC / DEMONSTRATION DATA`), and the endpoint itself is read-only (row counts byte-unchanged).
 - **Workspace (Phase 8):** 11 tests asserting the empty-case contract (`Not processed` / `Unverified` / zero counts / empty lists), the full-pipeline aggregate matches persisted rows (evidence inventory, integrity checks incl. injected `MISMATCH`, processing rollup, finding + review summaries, timeline/correlation/group/graph/assistant/report summaries from the Phase 4–6 services), the review queue reflects the persisted finding statuses, demo synthetic labelling, `404 CASE_NOT_FOUND`, the endpoint is read-only (DB row counts byte-unchanged), determinism (equal snapshots except `generated_at`), strict case isolation, and Phase 7 dashboard regression.
 - **Phase 4.5 core gate:** a fresh-temp-database end-to-end script that drives every API route (upload → verify → process → analyze → correlate → timeline → graph → review → re-run), checks raw-hash immutability (pre == recorded == post), finding/timeline/graph traceability chains, repeatability across two identical pipelines, empty/error/422/404/409 envelopes, append-only history on repeated operations, SQLite table/FK integrity (`PRAGMA foreign_key_check`), the three incident scenarios with honest ML abstention, a terminology harvest over every captured response, and informational performance timings.
+- **Incident scenarios (§14):** 23 tests asserting the corpora's observed behaviour — the benign control produces zero findings of any kind, the compromise scenario fires its documented rules plus an ML window, the ransomware-like scenario fires `PROC-001`/`FILE-001`/`FILE-002` with `FILE-001` escalated to High, every scenario processes to `Completed` with an ordered timeline and at least one activity group, raw bytes survive the pipeline, and the report conclusions diverge between the quiet and noisy corpora.
+- **ZIP container evidence:** 16 tests covering mixed-schema expansion, per-event `member_path` provenance, retention of unreadable members, path-traversal neutralisation, nested archives, symlink and encrypted entries, every decompression-bomb guard, stored archives, content-wins detection for a mislabelled archive, and an end-to-end upload through report generation with raw-hash immutability.
+- **Investigator notes:** 18 tests covering create/list, newest-first ordering, trimming, empty/oversized/missing rejection, the append-only route surface asserted against the OpenAPI document (no `PUT`/`PATCH`/`DELETE`), case scoping and `404`s, finding pinning and cross-case refusal, `last_activity` advance, survival across a full pipeline run, and list-limit bounds.
 
 ## 18. Risks and limitations
 
@@ -458,10 +462,12 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | **6** | **Investigation report layer** (immutable JSON snapshots + print UI) | deterministic 15-section report, snapshots immutable, global sequence, cross-case 404, custody — **DONE** |
 | **7** | **Dashboard** (read-only scenario statistics + per-case KPIs) | figures equal persisted rows, demo-cases labelled `DEMO_LABEL`, read-only guarantee — **DONE** |
 | **8** | **Advanced analyst workspace** (read-only investigation console: tabs + deep links + React Flow graph + inline review / assistant / report) | snapshot equals persisted rows, read-only + deterministic (except `generated_at`), case-scoped, Phase 7 regression green — **DONE** |
-| 9 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
-| 10 | Notes (investigator annotations) | persisted annotations in the findings UI |
+| 9a | **Security, performance & reliability hardening** | bounded inputs return structured 422; raw bytes unchanged across the lifecycle; DB init idempotent; static scan clean — **DONE** |
+| 9b | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
+| 10 | Notes (investigator annotations) | append-only notes persisted, case-scoped, pinned to findings, in the case UI — **DONE** |
 | 11 | Demo loader + polish + history | evaluator journey works end-to-end |
-| 12 | Stretch (EVTX, PCAP, optional LLM adapter) | only if 0–11 green |
+| 12a | ZIP container evidence | archive expands per-member with provenance and decompression-bomb guards — **DONE** |
+| 12b | Stretch (EVTX, PCAP, optional LLM adapter) | only if 0–11 green |
 
 ## 20. Phase 0 acceptance criteria (all 12) — status
 
@@ -702,3 +708,27 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 2. **Honesty + label semantics.** Processing rollup label resolves from persisted `ProcessingRun` statuses (`Not processed` / `Failed` / `Partial` / `In progress` / `Completed`); integrity uses the latest `IntegrityCheck` per evidence (checked_at desc, id desc) — ingest itself records a verified check, so a processed case reads `Verified` until a genuine `MISMATCH` flips the case-level status to `Mismatch`. Empty cases report `Not processed` / `Unverified` / zero counts / empty lists.
 3. **Frontend.** New `pages/InvestigationWorkspacePage.tsx` at `/cases/{case_id}/workspace`: tab bar (Overview / Evidence / Findings + review / Timeline / Correlations / Activity groups / Graph / Assistant / Reports), deep links via `?tab=` + `?finding=` / `?evidence=` / `?event=` anchors, the React Flow evidence graph + `table_rows` fallback reusing the Investigation page layout, inline finding review (reuses `reviewFinding` → existing `PATCH .../findings/{id}`), inline assistant ask (`askAssistant`), and inline report generate (`generateReport`) — each reloads the snapshot after a write. Route registered before the case catch-all; the case page gains an *Open workspace →* button. New `api/workspace.ts`, workspace DTOs in `types/models.ts`, and terminology mirror (`WORKSPACE_*`, `PROCESSING_*`, `INTEGRITY_*`) in `types/terminology.ts`. No new third-party dependencies.
 4. **Tests + gate.** `backend/tests/test_workspace.py` — 11 new tests (backend suite now **270 passed**): empty-case contract, full-pipeline aggregates equal persisted counts (incl. per-evidence integrity from check rows and injected `MISMATCH`), review queue reflects persisted statuses, demo synthetic label, 404 `CASE_NOT_FOUND`, read-only guarantee (row counts byte-unchanged), determinism (equal except `generated_at`), case isolation, and Phase 7 dashboard regression. `npm run build` green, `test_terminology` green, `gate_phase6.py` re-run green (104 checks), dashboard tests green, docs at v1.10.
+
+## 30. Changelog — v1.10 → v1.12 additions (Phase 9 — Security, performance & reliability hardening)
+
+1. **Input bounds.** `max_length` added to the `Form`/`Query` parameters in `routers/evidence.py` (`source` 4000, `actor` 127). Previously an oversized value reached SQLAlchemy and surfaced as a generic 500; it now returns a structured `422 VALIDATION_ERROR`. Boundary lengths are asserted by test.
+2. **Regression suite.** `tests/test_phase9_hardening.py` — 9 tests covering bounded input, raw bytes unchanged across the full lifecycle (upload → process → analyze → correlate → report → assistant → workspace → verify → controlled test), a 16-way concurrent read smoke test, `init_db()` idempotency + SQLite FK enforcement, and the raw store exposing no mutation operation. `test_reports.py`'s report-ID assertion was made order-agnostic so it cannot collide on the global `RPT-` sequence.
+3. **Documentation audit.** Every claim in this document was checked against the code. The demo-scenario section was describing a generator and three incident corpora that did not exist (see §31). External-IP wording, the ZIP deferral note, and the scenario expectations were corrected rather than restated.
+4. **Verification.** Static scan clean (no `eval`/`exec`/`os.system`/`subprocess(shell=True)`/`pickle`/`yaml.load`); SQL parameterized/ORM throughout; no `dangerouslySetInnerHTML`/`innerHTML`/`localStorage` in the frontend; no secrets committed and `.env` ignored; no new third-party dependencies.
+
+## 31. Changelog — v1.11 → v1.12 additions (incident scenarios + documentation truth)
+
+1. **Documentation made true.** The previous §14 described `demo/generate_scenarios.py` and three incident corpora (~150/220/450 events) that were not present in the repository, and referenced a `system.log` file that does not exist. Rather than restate the claim, the artifacts were built.
+2. **Generator.** `demo/generate_scenarios.py` — seeded (42), byte-reproducible, with `--check` that regenerates into a temporary directory and fails if any committed file has drifted. `.gitattributes` pins LF for the corpora so the check holds on Windows checkouts despite a global `core.autocrlf=true`.
+3. **Corpora.** `demo/scenarios/incidents/{A,B,C}/` — benign control (170 events, zero findings), account compromise (151, fires `AUTH-001`/`AUTH-003`/`PROC-001` + an ML window), ransomware-like (269, fires `PROC-001`/`FILE-001`/`FILE-002`). All clean, so they process to `Completed` and span far more than `ML_MIN_WINDOWS`, letting anomaly scoring engage instead of abstaining. The shipped edge-case corpus is documented separately — those files deliberately contain malformed rows and therefore always process to `Partial`.
+4. **Behaviour tests.** `tests/test_incident_scenarios.py` — 23 tests asserting observed behaviour rather than file shape: which rules each scenario fires, that the benign control is completely silent, timeline ordering, correlation traceability, raw-byte immutability, and divergent report conclusions.
+5. **Known limitation, documented not worked around.** `AUTH-002` and `NET-001` require an address outside IANA special-purpose space, but Python's `ipaddress.is_private` reports `True` for all three RFC 5737 documentation ranges — so neither rule can fire on the synthetic corpora. Using documentation ranges is the correct choice for synthetic data and real external addresses do not belong in a demo corpus, so this is stated explicitly; both rules remain covered by `tests/test_analysis.py`.
+
+## 32. Changelog — v1.12 additions (Phase 10 — Investigator notes)
+
+1. **Append-only annotations.** `POST /api/cases/{case_id}/notes` and `GET /api/cases/{case_id}/notes` (`services/notes_service.py`). Notes are **append-only by design**: there is deliberately no `PUT`/`PATCH`/`DELETE` route, matching the rest of the evidence model where custody events, findings, and reports are recorded rather than revised. The OpenAPI surface is asserted in test so an edit route cannot be added unnoticed.
+2. **Case scoping.** The router resolves the case first, so a foreign or unknown case yields `404 CASE_NOT_FOUND` rather than leaking notes. A note may optionally be pinned to a finding, and pinning is validated against the same case (`404 FINDING_NOT_FOUND` across a boundary, `422` for a malformed identifier) — notes cannot reference across the case boundary in either direction.
+3. **Bounds and honesty.** Body is trimmed, non-empty, and capped at 4000 characters; author at 127; list limit 1–500. Writing a note advances `case.last_activity`. The API returns `append_only: true` and the UI states that a note is an analyst judgement, not an automated conclusion.
+4. **Frontend.** `components/NotesPanel.tsx` mounted on the case detail page, with `getCaseNotes` / `getFindingNotes` / `addCaseNote` helpers in `api/cases.ts` (deliberately no update or delete helper) and `NOTES_*` terminology constants in both terminology modules.
+5. **Tests.** `tests/test_notes.py` — 18 tests: create/list, ordering, trimming, empty/oversized/missing rejection, append-only route surface, case scoping and 404s, finding pinning and cross-case refusal, `last_activity`, survival across a full pipeline run, and limit bounds.
+

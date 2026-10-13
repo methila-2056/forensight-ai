@@ -23,10 +23,12 @@ const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "S
   { id: "6", label: "Investigation report layer (immutable evidence-backed snapshots + print UI)", tier: "Secondary", done: true },
   { id: "7", label: "Dashboard", tier: "Secondary", done: true },
   { id: "8", label: "Advanced analyst workspace (read-only investigation console)", tier: "Secondary", done: true },
-  { id: "9", label: "Segment classifier metrics", tier: "Secondary", done: false },
-  { id: "10", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
-  { id: "11", label: "Polish and final presentation", tier: "Core", done: false },
-  { id: "12", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
+  { id: "9a", label: "Security, performance and reliability hardening", tier: "Core", done: true },
+  { id: "9b", label: "Segment classifier metrics", tier: "Secondary", done: false },
+  { id: "10", label: "Notes (append-only investigator annotations)", tier: "Secondary", done: true },
+  { id: "11", label: "Demo loader, polish and final presentation", tier: "Core", done: false },
+  { id: "12a", label: "ZIP container evidence (per-member, bomb-guarded)", tier: "Stretch", done: true },
+  { id: "12b", label: "EVTX, PCAP, optional LLM adapter", tier: "Stretch", done: false },
 ];
 
 export default function Landing(): JSX.Element {

@@ -46,6 +46,24 @@ export interface CaseCreatePayload {
   severity: Severity;
 }
 
+/** One append-only investigator annotation (Phase 10). */
+export interface NoteSummary {
+  case_id: string;
+  note_id: number;
+  finding_uid: string | null;
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface NoteList {
+  notes: NoteSummary[];
+  total: number;
+  limit: number;
+  /** Notes are append-only; the UI must not offer edit or delete. */
+  append_only: boolean;
+}
+
 export interface EvidenceItem {
   evidence_id: string;
   case_id: string;
