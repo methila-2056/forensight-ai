@@ -44,7 +44,7 @@ The chain is visible in the UI, in assistant answers, and in the generated repor
 
 **SECONDARY** — evidence graph (implemented, Phase 4) · **investigation report (evidence-backed JSON snapshots + print UI — implemented, Phase 6)** · **AI investigation assistant (deterministic, retrieval-first) — implemented (Phase 5)** · **advanced analyst workspace (read-only investigation console) — implemented (Phase 8)** · investigator notes.
 
-**STRETCH** — ZIP support · Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · Docker · advanced scalability.
+**STRETCH** — Windows EVTX · PCAP · optional LLM adapter (disabled, labelled *Prototype / Planned*) · advanced scalability.
 
 Cut order if time is limited: Stretch → Secondary → never Core.
 

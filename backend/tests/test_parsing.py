@@ -171,11 +171,24 @@ def test_json_content_wins_over_extension():
     assert outcome.parser_name == "json"
 
 
+def test_corrupt_zip_rejected_with_hints():
+    """A ZIP-signature file that is not a real archive must be rejected."""
+    with pytest.raises(UnknownFormatError) as excinfo:
+        parse_evidence(
+            b"PK\x03\x04 not really zip",
+            filename="archive.zip",
+            declared_type="generic",
+            max_records=100,
+        )
+    assert "not a readable ZIP archive" in excinfo.value.message
+    assert excinfo.value.hints
+
+
 def test_unsupported_extension_rejected_with_hints():
     with pytest.raises(UnknownFormatError) as excinfo:
         parse_evidence(
-            b"PK\x03\x04 not really csv",
-            filename="archive.zip",
+            b"\x00\x01\x02\x03binary blob",
+            filename="capture.pcap",
             declared_type="generic",
             max_records=100,
         )

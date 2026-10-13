@@ -63,6 +63,14 @@ class ParsedRecord:
     fields: dict[str, str] = field(default_factory=dict)  # canonical column -> raw value
     raw: str = ""                      # safe original representation
     parse_error: str | None = None     # structural failure (retained, never dropped)
+    # Set by container parsers (ZIP) that already ran the member's own
+    # normalizer. When present, the pipeline consumes this mapping instead of
+    # re-normalizing `fields` — that is what lets a single evidence file hold
+    # members of differing schemas.
+    pre_normalized: "NormalizationOutcome | None" = None
+    # Provenance for container members (e.g. "logs/auth.csv"); None for
+    # single-file evidence.
+    member_path: str | None = None
 
 
 @dataclass

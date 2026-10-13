@@ -150,6 +150,25 @@ REPORT  → deterministic 15-section JSON snapshot → custody(Report Generated)
 
 **Timestamp handling:** ISO-8601 (±Z), `YYYY-MM-DD HH:MM:SS[.fff]`, Apache-style, US format, epoch s/ms — tried in order; unparseable rows are rejected *with reason* and retained. **Field aliases:** `user|username|account → user`, `ip|src_ip|source_ip → source_ip`, `ts|time|timestamp|@timestamp → timestamp`, etc.
 
+**ZIP container evidence (Phase 12).** A `.zip` upload is expanded into one merged batch. Each member is detected, parsed, and normalized **independently** using the ordinary CSV/JSON parsers and the normalizer registry, because a forensic archive legitimately mixes schemas (`authentication.csv` beside `network.csv`). The member's filename supplies a source-type hint that resolves genuine scoring ties between normalizers — an `authentication`-shaped CSV and a `file_activity`-shaped CSV score identically when their columns overlap. Container detection is by ZIP **signature**, not extension, so a mislabelled archive still routes correctly (content always wins over the extension).
+
+Every normalized event carries `metadata.member_path`, so an investigator can always answer *which file inside the archive* a given event came from. The run's `parser` field reads `zip/<type>`, and run warnings carry a full member inventory (read, skipped, or unreadable — with the reason).
+
+Safety is enforced *before* any member is expanded, because archive-declared sizes are untrusted:
+
+| Guard | Default | Defeats |
+|---|---|---|
+| `ZIP_MAX_MEMBERS` | 200 | Member-count flooding |
+| `ZIP_MAX_MEMBER_UNCOMPRESSED_BYTES` | upload cap | One oversized member |
+| `ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES` | 4× upload cap | Aggregate expansion |
+| `ZIP_MAX_COMPRESSION_RATIO` | 200:1 | Classic zip bombs |
+| Nested archives never recursed | — | Zip-inside-zip amplification |
+| Symlink entries skipped | — | Symlink escape |
+| Encrypted entries skipped | — | Unreadable/password members |
+| Member names reduced to a safe label | — | Zip-slip / path traversal |
+
+Nothing is ever written to disk from an archive: member names are **display and provenance metadata only**, reduced to a normalised relative path (`../../etc/evil.csv` → `etc/evil.csv`). Members that cannot be read are never silently dropped — each is retained as a rejected record carrying the reason, exactly like a malformed CSV row.
+
 **Processing-run semantics (v1.2, hardened in v1.6):** a run reads at most `MAX_RECORDS_PER_RUN` records (default 200 000); any remainder is reported as a warning. Status is `FAILED` when the file cannot be processed safely (unknown format, unreadable content, or recorded SHA-256 no longer matching the stored bytes); `PARTIAL` when rows were rejected, no rows were produced (`received == 0`), or the record cap truncated the input; otherwise `COMPLETED`. Rejects are explained and retained (`raw_records.reject_reason`); duplicates are marked on derived events (never deleted, never silently doubled in counts); reprocessing replaces the derived rows for that evidence and appends a new run entry without modifying raw bytes. **Exception (v1.6):** when preserved history already references that evidence's events — correlation links hold a foreign key to the event rows, stored findings/groups hold event-uid lists — the rebuild is *skipped* for that evidence, the existing rows are kept, and the run records an explanatory warning (`rebuild skipped: ...`); append-only history is never rewritten and no run is failed by this condition.
 
 ## 9. ML methodology (Strategy A, single strategy)
@@ -394,7 +413,7 @@ All errors use a uniform envelope `{error:{code,message,detail}}`; server paths 
 
 ## 16. Security considerations
 
-Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisation with UUID storage names (traversal-proof); zip-slip guards when ZIP lands; raw store write-once with no overwrite path; no execution of uploaded content; Pydantic validation on every input; parameterized SQL via ORM; evidence text always rendered escaped; evidence treated as data (never as instructions); request logging; report embeds every SHA-256 so a third party can re-verify independently; CSV export neutralises spreadsheet formula prefixes. Report sections are bounded by the documented caps, served from an immutable cache, and rendered with escaped text in the UI (no `dangerouslySetInnerHTML`).
+Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisation with UUID storage names (traversal-proof); ZIP members are expanded in memory only and **never written to disk**, with member names reduced to safe display labels so zip-slip cannot escape; archive expansion is bounded by member count, per-member size, aggregate size, and compression ratio, with nested archives, symlinks, and encrypted entries all skipped (see §8); raw store write-once with no overwrite path; no execution of uploaded content; Pydantic validation on every input; parameterized SQL via ORM; evidence text always rendered escaped; evidence treated as data (never as instructions); request logging; report embeds every SHA-256 so a third party can re-verify independently; CSV export neutralises spreadsheet formula prefixes. Report sections are bounded by the documented caps, served from an immutable cache, and rendered with escaped text in the UI (no `dangerouslySetInnerHTML`).
 
 ## 17. Testing strategy
 
@@ -442,7 +461,7 @@ Upload extension allowlist + size cap (25 MB) + MIME sniff; filename sanitisatio
 | 9 | Segment classifier metrics | synthetic-data-labelled metrics, no real-world claims |
 | 10 | Notes (investigator annotations) | persisted annotations in the findings UI |
 | 11 | Demo loader + polish + history | evaluator journey works end-to-end |
-| 12 | Stretch (ZIP, EVTX, PCAP, optional LLM adapter, Docker) | only if 0–11 green |
+| 12 | Stretch (EVTX, PCAP, optional LLM adapter) | only if 0–11 green |
 
 ## 20. Phase 0 acceptance criteria (all 12) — status
 

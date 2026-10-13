@@ -61,6 +61,27 @@ RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
 MAX_RECORDS_PER_RUN = int(os.getenv("MAX_RECORDS_PER_RUN", "200000"))
 
 # ---------------------------------------------------------------------------
+# ZIP container support (Phase 12) — defence against decompression bombs
+# ---------------------------------------------------------------------------
+# A ZIP upload is expanded in memory, so the archive's *declared* sizes are
+# untrusted. The guards below bound work before any member is read:
+#   * member count            — caps the number of entries we will even inspect
+#   * total uncompressed size — caps aggregate expansion across all members
+#   * per-member size         — caps a single member
+#   * compression ratio       — the classic zip-bomb signal (a member that
+#                               expands far beyond its compressed size)
+# Nested archives are never recursed into, which removes the "zip inside zip"
+# amplification vector entirely.
+ZIP_MAX_MEMBERS = int(os.getenv("ZIP_MAX_MEMBERS", "200"))
+ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES = int(
+    os.getenv("ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES", str(MAX_UPLOAD_BYTES * 4))
+)
+ZIP_MAX_MEMBER_UNCOMPRESSED_BYTES = int(
+    os.getenv("ZIP_MAX_MEMBER_UNCOMPRESSED_BYTES", str(MAX_UPLOAD_BYTES))
+)
+ZIP_MAX_COMPRESSION_RATIO = float(os.getenv("ZIP_MAX_COMPRESSION_RATIO", "200"))
+
+# ---------------------------------------------------------------------------
 # Automated analysis (Phase 3) — deterministic feature windows + ML strategy A
 # ---------------------------------------------------------------------------
 

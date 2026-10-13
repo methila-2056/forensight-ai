@@ -241,6 +241,26 @@ def process_evidence(
         warnings.extend(outcome.warnings)
         run.parser = f"{outcome.parser_name}/{outcome.source_type}"
 
+        # Record what was inside a container so the run is self-describing:
+        # which members parsed, which were skipped, and why.
+        if outcome.members:
+            used = sum(m.records for m in outcome.members if m.status == "ok")
+            skipped = sum(1 for m in outcome.members if m.status != "ok")
+            summary = (
+                f"ZIP archive: {len(outcome.members)} member(s) inspected, "
+                f"{used} read, {skipped} skipped or unreadable"
+            )
+            warnings.append(summary)
+            for member in outcome.members:
+                if member.status == "ok":
+                    warnings.append(
+                        f"member {member.path}: {member.records} record(s)"
+                    )
+                else:
+                    warnings.append(
+                        f"member {member.path}: {member.status} ({member.detail})"
+                    )
+
         # Reprocessing replaces derived rows for this evidence only — unless
         # preserved history still references the existing events, in which
         # case the rows are kept and the run explains why (see helper).
@@ -273,7 +293,12 @@ def process_evidence(
                 continue
 
             counts["records_parsed"] += 1
-            mapped = outcome.normalizer.normalize(record.fields, record.row_index)
+            # Container parsers (ZIP) normalize each member with that member's
+            # own schema, so honour a pre-computed mapping when present.
+            if record.pre_normalized is not None:
+                mapped = record.pre_normalized
+            else:
+                mapped = outcome.normalizer.normalize(record.fields, record.row_index)
             if mapped.reject_reason:
                 counts["records_rejected"] += 1
                 if rebuild:
@@ -289,6 +314,9 @@ def process_evidence(
 
             dedupe = _dedupe_hash(mapped.common)
             metadata = dict(mapped.metadata)
+            if record.member_path:
+                # Provenance: which archive member this event came from.
+                metadata.setdefault("member_path", record.member_path)
             if dedupe in seen:
                 counts["duplicates_detected"] += 1
                 metadata["duplicate"] = {

@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from app import config
 from app.engines.parsing.base import ParseBatch, UnknownFormatError
 from app.engines.parsing.csv_parser import CsvParser, decode_text
 from app.engines.parsing.json_parser import JsonParser, looks_like_json
@@ -26,6 +27,7 @@ from app.engines.parsing.normalizer import (
     canonicalize,
     select_normalizer,
 )
+from app.engines.parsing.zip_parser import ZipEvidenceParser
 
 _CSV_EXTENSIONS = {".csv", ".txt", ".log"}
 _SAMPLE_BYTES = 65_536
@@ -38,6 +40,8 @@ class ParseOutcome:
     source_type: str
     batch: ParseBatch
     warnings: list[str] = field(default_factory=list)
+    # Container metadata (ZIP member inventory); empty for single-file evidence.
+    members: list = field(default_factory=list)
 
 
 def _detect_parser(data: bytes, filename: str):
@@ -45,16 +49,20 @@ def _detect_parser(data: bytes, filename: str):
     extension = Path(filename or "").suffix.lower()
     first_line = sample_text.splitlines()[0] if sample_text else ""
 
+    # Container content wins over the extension: an archive is detected from
+    # its ZIP signature so a mislabelled .zip still routes correctly.
+    if data[:4] in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"):
+        return ZipEvidenceParser()
     if looks_like_json(sample_text):
         return JsonParser()
     if extension in _CSV_EXTENSIONS or "," in first_line:
         return CsvParser()
     raise UnknownFormatError(
         f"unsupported evidence format for {extension or 'unknown'} file; "
-        "expected CSV or JSON structured records",
+        "expected CSV, JSON, or a ZIP archive of those",
         hints=[
-            "supported inputs: CSV with a header row, or JSON records",
-            "ZIP archives are processed in a later phase",
+            "supported inputs: CSV with a header row, JSON records, "
+            "or a ZIP archive containing either",
         ],
     )
 
@@ -71,16 +79,28 @@ def parse_evidence(
         raise UnknownFormatError("evidence file is empty")
 
     parser = _detect_parser(data, filename)
-    batch = parser.parse(data)
-    warnings = list(batch.warnings)
+    members: list = []
 
-    if not batch.columns:
-        raise UnknownFormatError(
-            "evidence header could not be read; no usable column names found"
-        )
-
-    columns = set(canonicalize({name: "" for name in batch.columns}))
-    normalizer = select_normalizer(columns, declared_type)
+    if isinstance(parser, ZipEvidenceParser):
+        # Members are normalized individually, so the batch is authoritative;
+        # a single normalizer is reported only for schema/compat continuity.
+        expanded = parser.parse_with_report(data)
+        batch = expanded.batch
+        warnings = list(expanded.warnings)
+        members = expanded.members
+        columns = set(batch.columns)
+        normalizer = select_normalizer(columns, None) if columns else GenericNormalizer()
+        source_type = normalizer.source_type
+    else:
+        batch = parser.parse(data)
+        warnings = list(batch.warnings)
+        if not batch.columns:
+            raise UnknownFormatError(
+                "evidence header could not be read; no usable column names found"
+            )
+        columns = set(canonicalize({name: "" for name in batch.columns}))
+        normalizer = select_normalizer(columns, declared_type)
+        source_type = normalizer.source_type
 
     if len(batch.records) > max_records:
         dropped = len(batch.records) - max_records
@@ -96,9 +116,10 @@ def parse_evidence(
     return ParseOutcome(
         parser_name=parser.name,
         normalizer=normalizer,
-        source_type=normalizer.source_type,
+        source_type=source_type,
         batch=batch,
         warnings=warnings,
+        members=members,
     )
 
 
