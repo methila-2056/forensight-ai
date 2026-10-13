@@ -1,0 +1,43 @@
+timestamp,host,user,process,action,pid,parent_process,command_line
+2026-10-06 22:00:00,WS-01,usr_alice,explorer.exe,start,8011,explorer.exe,explorer.exe
+2026-10-06 22:01:12,WS-01,usr_alice,explorer.exe,start,8022,explorer.exe,explorer.exe
+2026-10-06 22:02:24,WS-01,usr_alice,explorer.exe,start,8033,explorer.exe,explorer.exe
+2026-10-06 22:03:36,WS-01,usr_alice,explorer.exe,start,8044,explorer.exe,explorer.exe
+2026-10-06 22:04:48,WS-01,usr_alice,explorer.exe,start,8055,explorer.exe,explorer.exe
+2026-10-06 22:06:00,WS-01,usr_alice,explorer.exe,start,8066,explorer.exe,explorer.exe
+2026-10-06 22:07:12,WS-01,usr_alice,explorer.exe,start,8077,explorer.exe,explorer.exe
+2026-10-06 22:08:24,WS-01,usr_alice,explorer.exe,start,8088,explorer.exe,explorer.exe
+2026-10-06 22:09:36,WS-01,usr_alice,explorer.exe,start,8099,explorer.exe,explorer.exe
+2026-10-06 22:10:48,WS-01,usr_alice,explorer.exe,start,8110,explorer.exe,explorer.exe
+2026-10-06 22:12:00,WS-01,usr_alice,explorer.exe,start,8121,explorer.exe,explorer.exe
+2026-10-06 22:13:12,WS-01,usr_alice,explorer.exe,start,8132,explorer.exe,explorer.exe
+2026-10-06 22:14:24,WS-01,usr_alice,explorer.exe,start,8143,explorer.exe,explorer.exe
+2026-10-06 22:15:36,WS-01,usr_alice,explorer.exe,start,8154,explorer.exe,explorer.exe
+2026-10-06 22:16:48,WS-01,usr_alice,explorer.exe,start,8165,explorer.exe,explorer.exe
+2026-10-06 22:18:00,WS-01,usr_alice,explorer.exe,start,8176,explorer.exe,explorer.exe
+2026-10-06 22:19:12,WS-01,usr_alice,explorer.exe,start,8187,explorer.exe,explorer.exe
+2026-10-06 22:20:24,WS-01,usr_alice,explorer.exe,start,8198,explorer.exe,explorer.exe
+2026-10-06 22:21:36,WS-01,usr_alice,explorer.exe,start,8209,explorer.exe,explorer.exe
+2026-10-06 22:22:48,WS-01,usr_alice,explorer.exe,start,8220,explorer.exe,explorer.exe
+2026-10-06 22:24:00,WS-01,usr_alice,explorer.exe,start,8231,explorer.exe,explorer.exe
+2026-10-06 22:25:12,WS-01,usr_alice,explorer.exe,start,8242,explorer.exe,explorer.exe
+2026-10-06 22:26:24,WS-01,usr_alice,explorer.exe,start,8253,explorer.exe,explorer.exe
+2026-10-06 22:27:36,WS-01,usr_alice,explorer.exe,start,8264,explorer.exe,explorer.exe
+2026-10-06 22:28:48,WS-01,usr_alice,explorer.exe,start,8275,explorer.exe,explorer.exe
+2026-10-06 22:30:00,WS-01,usr_alice,explorer.exe,start,8286,explorer.exe,explorer.exe
+2026-10-06 22:31:12,WS-01,usr_alice,explorer.exe,start,8297,explorer.exe,explorer.exe
+2026-10-06 22:32:24,WS-01,usr_alice,explorer.exe,start,8308,explorer.exe,explorer.exe
+2026-10-06 22:33:36,WS-01,usr_alice,explorer.exe,start,8319,explorer.exe,explorer.exe
+2026-10-06 22:34:48,WS-01,usr_alice,explorer.exe,start,8330,explorer.exe,explorer.exe
+2026-10-06 22:36:00,WS-01,usr_alice,explorer.exe,start,8341,explorer.exe,explorer.exe
+2026-10-06 22:37:12,WS-01,usr_alice,explorer.exe,start,8352,explorer.exe,explorer.exe
+2026-10-06 22:38:24,WS-01,usr_alice,explorer.exe,start,8363,explorer.exe,explorer.exe
+2026-10-06 22:39:36,WS-01,usr_alice,explorer.exe,start,8374,explorer.exe,explorer.exe
+2026-10-06 22:40:48,WS-01,usr_alice,explorer.exe,start,8385,explorer.exe,explorer.exe
+2026-10-06 22:42:00,WS-01,usr_alice,explorer.exe,start,8396,explorer.exe,explorer.exe
+2026-10-06 22:43:12,WS-01,usr_alice,explorer.exe,start,8407,explorer.exe,explorer.exe
+2026-10-06 22:44:24,WS-01,usr_alice,explorer.exe,start,8418,explorer.exe,explorer.exe
+2026-10-06 22:45:36,WS-01,usr_alice,explorer.exe,start,8429,explorer.exe,explorer.exe
+2026-10-06 22:46:48,WS-01,usr_alice,explorer.exe,start,8440,explorer.exe,explorer.exe
+2026-10-06 22:06:00,WS-01,usr_alice,powershell.exe,start,9101,explorer.exe,powershell -nop -w hidden -enc SQBFAFgA
+2026-10-06 22:20:00,WS-01,usr_alice,cmd.exe,start,9140,explorer.exe,cmd /c whoami /all

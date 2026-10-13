@@ -71,7 +71,10 @@ forensight-ai/
 │   ├── data/                  # SQLite db (git-ignored)
 │   ├── evidence_store/        # raw evidence, write-once (git-ignored)
 │   ├── ml_artifacts/          # trained model artifacts (git-ignored)
-│   └── demo/scenarios/        # 6 synthetic demo datasets + README (Phase 2)
+│   ├── demo/
+│   │   ├── generate_scenarios.py   # seeded generator (seed 42) + --check drift test
+│   │   └── scenarios/        # 6 synthetic edge-case datasets + README (Phase 2)
+│   │       └── incidents/{A,B,C}/  # 3 seeded incident corpora (benign / compromise / ransomware)
 └── frontend/
     └── src/                   # React + TypeScript + Vite + Tailwind
         ├── api/ types/ state/ components/ pages/   # incl. Events, Findings, Finding detail, Assistant, Reports

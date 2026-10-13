@@ -1,0 +1,24 @@
+timestamp,host,process,source_ip,destination_ip,destination_port,protocol,action
+2026-10-07 02:00:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:02:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:04:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:06:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:08:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:10:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:12:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:14:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:16:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:18:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:20:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:22:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:24:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:26:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:28:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:30:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:32:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:34:00,SRV-FILE01,chrome.exe,10.20.30.20,203.0.113.5,443,tcp,connect
+2026-10-07 02:34:00,SRV-FILE01,certutil.exe,10.20.30.20,198.51.100.7,443,tcp,connect
+2026-10-07 02:35:00,SRV-FILE01,certutil.exe,10.20.30.20,198.51.100.7,443,tcp,connect
+2026-10-07 02:36:00,SRV-FILE01,certutil.exe,10.20.30.20,198.51.100.7,443,tcp,connect
+2026-10-07 02:37:00,SRV-FILE01,certutil.exe,10.20.30.20,198.51.100.7,443,tcp,connect
+2026-10-07 02:38:00,SRV-FILE01,certutil.exe,10.20.30.20,198.51.100.7,443,tcp,connect

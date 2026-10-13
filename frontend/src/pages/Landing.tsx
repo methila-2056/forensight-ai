@@ -25,7 +25,7 @@ const PHASES: Array<{ id: string; label: string; tier: "Core" | "Secondary" | "S
   { id: "8", label: "Advanced analyst workspace (read-only investigation console)", tier: "Secondary", done: true },
   { id: "9", label: "Segment classifier metrics", tier: "Secondary", done: false },
   { id: "10", label: "Notes (investigator annotations)", tier: "Secondary", done: false },
-  { id: "11", label: "One-click demo case + polish", tier: "Core", done: false },
+  { id: "11", label: "Polish and final presentation", tier: "Core", done: false },
   { id: "12", label: "ZIP, EVTX, PCAP, optional LLM adapter, Docker", tier: "Stretch", done: false },
 ];
 

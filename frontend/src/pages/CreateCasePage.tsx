@@ -50,7 +50,7 @@ export default function CreateCasePage(): JSX.Element {
             className={fieldClass}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Unauthorized login review — workstation WS-07"
+            placeholder="Ransomware incident - workstation WS-07"
             required
           />
         </div>

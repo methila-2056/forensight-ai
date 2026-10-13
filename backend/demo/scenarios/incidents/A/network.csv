@@ -1,0 +1,21 @@
+timestamp,host,process,source_ip,destination_ip,destination_port,protocol,action
+2026-10-05 08:00:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:03:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:06:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:09:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:12:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:15:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:18:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:21:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:24:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:27:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:30:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:33:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:36:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:39:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:42:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:45:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:48:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:51:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:54:00,WS-01,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect
+2026-10-05 08:57:00,WS-03,chrome.exe,10.20.30.10,203.0.113.5,443,tcp,connect

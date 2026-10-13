@@ -1,0 +1,21 @@
+timestamp,user,host,url,domain,action
+2026-10-05 08:00:05,usr_alice,WS-01,https://mail.example/page/0,mail.example,visit
+2026-10-05 08:03:05,usr_bob,WS-03,https://portal.example/page/1,portal.example,visit
+2026-10-05 08:06:05,usr_dana,WS-01,https://mail.example/page/2,mail.example,visit
+2026-10-05 08:09:05,usr_alice,WS-03,https://portal.example/page/3,portal.example,visit
+2026-10-05 08:12:05,usr_bob,WS-01,https://mail.example/page/4,mail.example,visit
+2026-10-05 08:15:05,usr_dana,WS-03,https://portal.example/page/5,portal.example,visit
+2026-10-05 08:18:05,usr_alice,WS-01,https://mail.example/page/6,mail.example,visit
+2026-10-05 08:21:05,usr_bob,WS-03,https://portal.example/page/7,portal.example,visit
+2026-10-05 08:24:05,usr_dana,WS-01,https://mail.example/page/8,mail.example,visit
+2026-10-05 08:27:05,usr_alice,WS-03,https://portal.example/page/9,portal.example,visit
+2026-10-05 08:30:05,usr_bob,WS-01,https://mail.example/page/10,mail.example,visit
+2026-10-05 08:33:05,usr_dana,WS-03,https://portal.example/page/11,portal.example,visit
+2026-10-05 08:36:05,usr_alice,WS-01,https://mail.example/page/12,mail.example,visit
+2026-10-05 08:39:05,usr_bob,WS-03,https://portal.example/page/13,portal.example,visit
+2026-10-05 08:42:05,usr_dana,WS-01,https://mail.example/page/14,mail.example,visit
+2026-10-05 08:45:05,usr_alice,WS-03,https://portal.example/page/15,portal.example,visit
+2026-10-05 08:48:05,usr_bob,WS-01,https://mail.example/page/16,mail.example,visit
+2026-10-05 08:51:05,usr_dana,WS-03,https://portal.example/page/17,portal.example,visit
+2026-10-05 08:54:05,usr_alice,WS-01,https://mail.example/page/18,mail.example,visit
+2026-10-05 08:57:05,usr_bob,WS-03,https://portal.example/page/19,portal.example,visit

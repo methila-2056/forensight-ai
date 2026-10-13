@@ -1,0 +1,244 @@
+{
+  "events": [
+    {
+      "timestamp": "2026-10-05 08:00:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_alice",
+      "message": "routine checkpoint 0"
+    },
+    {
+      "timestamp": "2026-10-05 08:02:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_bob",
+      "message": "routine checkpoint 1"
+    },
+    {
+      "timestamp": "2026-10-05 08:04:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_dana",
+      "message": "routine checkpoint 2"
+    },
+    {
+      "timestamp": "2026-10-05 08:06:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_alice",
+      "message": "routine checkpoint 3"
+    },
+    {
+      "timestamp": "2026-10-05 08:08:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_bob",
+      "message": "routine checkpoint 4"
+    },
+    {
+      "timestamp": "2026-10-05 08:10:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_dana",
+      "message": "routine checkpoint 5"
+    },
+    {
+      "timestamp": "2026-10-05 08:12:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_alice",
+      "message": "routine checkpoint 6"
+    },
+    {
+      "timestamp": "2026-10-05 08:14:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_bob",
+      "message": "routine checkpoint 7"
+    },
+    {
+      "timestamp": "2026-10-05 08:16:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_dana",
+      "message": "routine checkpoint 8"
+    },
+    {
+      "timestamp": "2026-10-05 08:18:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_alice",
+      "message": "routine checkpoint 9"
+    },
+    {
+      "timestamp": "2026-10-05 08:20:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_bob",
+      "message": "routine checkpoint 10"
+    },
+    {
+      "timestamp": "2026-10-05 08:22:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_dana",
+      "message": "routine checkpoint 11"
+    },
+    {
+      "timestamp": "2026-10-05 08:24:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_alice",
+      "message": "routine checkpoint 12"
+    },
+    {
+      "timestamp": "2026-10-05 08:26:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_bob",
+      "message": "routine checkpoint 13"
+    },
+    {
+      "timestamp": "2026-10-05 08:28:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_dana",
+      "message": "routine checkpoint 14"
+    },
+    {
+      "timestamp": "2026-10-05 08:30:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_alice",
+      "message": "routine checkpoint 15"
+    },
+    {
+      "timestamp": "2026-10-05 08:32:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_bob",
+      "message": "routine checkpoint 16"
+    },
+    {
+      "timestamp": "2026-10-05 08:34:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_dana",
+      "message": "routine checkpoint 17"
+    },
+    {
+      "timestamp": "2026-10-05 08:36:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_alice",
+      "message": "routine checkpoint 18"
+    },
+    {
+      "timestamp": "2026-10-05 08:38:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_bob",
+      "message": "routine checkpoint 19"
+    },
+    {
+      "timestamp": "2026-10-05 08:40:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_dana",
+      "message": "routine checkpoint 20"
+    },
+    {
+      "timestamp": "2026-10-05 08:42:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_alice",
+      "message": "routine checkpoint 21"
+    },
+    {
+      "timestamp": "2026-10-05 08:44:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_bob",
+      "message": "routine checkpoint 22"
+    },
+    {
+      "timestamp": "2026-10-05 08:46:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_dana",
+      "message": "routine checkpoint 23"
+    },
+    {
+      "timestamp": "2026-10-05 08:48:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_alice",
+      "message": "routine checkpoint 24"
+    },
+    {
+      "timestamp": "2026-10-05 08:50:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_bob",
+      "message": "routine checkpoint 25"
+    },
+    {
+      "timestamp": "2026-10-05 08:52:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_dana",
+      "message": "routine checkpoint 26"
+    },
+    {
+      "timestamp": "2026-10-05 08:54:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_alice",
+      "message": "routine checkpoint 27"
+    },
+    {
+      "timestamp": "2026-10-05 08:56:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-01",
+      "user": "usr_bob",
+      "message": "routine checkpoint 28"
+    },
+    {
+      "timestamp": "2026-10-05 08:58:30Z",
+      "event_type": "system.info",
+      "source": "system",
+      "host": "WS-03",
+      "user": "usr_dana",
+      "message": "routine checkpoint 29"
+    }
+  ]
+}

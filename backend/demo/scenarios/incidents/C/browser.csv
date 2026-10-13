@@ -1,0 +1,7 @@
+timestamp,user,host,url,domain,action
+2026-10-07 02:02:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_0.zip,fileshare.example,download
+2026-10-07 02:03:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_1.zip,fileshare.example,download
+2026-10-07 02:04:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_2.zip,fileshare.example,download
+2026-10-07 02:05:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_3.zip,fileshare.example,download
+2026-10-07 02:06:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_4.zip,fileshare.example,download
+2026-10-07 02:07:00,usr_dana,SRV-FILE01,https://fileshare.example/update/toolkit_5.zip,fileshare.example,download

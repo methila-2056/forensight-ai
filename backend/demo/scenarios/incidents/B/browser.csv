@@ -1,0 +1,25 @@
+timestamp,user,host,url,domain,action
+2026-10-06 22:03:00,usr_alice,WS-01,https://fileshare.example/share?page=0,fileshare.example,visit
+2026-10-06 22:04:30,usr_alice,WS-01,https://fileshare.example/share?page=1,fileshare.example,visit
+2026-10-06 22:06:00,usr_alice,WS-01,https://fileshare.example/share?page=2,fileshare.example,visit
+2026-10-06 22:07:30,usr_alice,WS-01,https://fileshare.example/share?page=3,fileshare.example,visit
+2026-10-06 22:09:00,usr_alice,WS-01,https://fileshare.example/share?page=4,fileshare.example,visit
+2026-10-06 22:10:30,usr_alice,WS-01,https://fileshare.example/share?page=5,fileshare.example,visit
+2026-10-06 22:12:00,usr_alice,WS-01,https://fileshare.example/share?page=6,fileshare.example,visit
+2026-10-06 22:13:30,usr_alice,WS-01,https://fileshare.example/share?page=7,fileshare.example,visit
+2026-10-06 22:15:00,usr_alice,WS-01,https://fileshare.example/share?page=8,fileshare.example,visit
+2026-10-06 22:16:30,usr_alice,WS-01,https://fileshare.example/share?page=9,fileshare.example,visit
+2026-10-06 22:18:00,usr_alice,WS-01,https://fileshare.example/share?page=10,fileshare.example,visit
+2026-10-06 22:19:30,usr_alice,WS-01,https://fileshare.example/share?page=11,fileshare.example,visit
+2026-10-06 22:21:00,usr_alice,WS-01,https://fileshare.example/share?page=12,fileshare.example,visit
+2026-10-06 22:22:30,usr_alice,WS-01,https://fileshare.example/share?page=13,fileshare.example,visit
+2026-10-06 22:24:00,usr_alice,WS-01,https://fileshare.example/share?page=14,fileshare.example,visit
+2026-10-06 22:25:30,usr_alice,WS-01,https://fileshare.example/share?page=15,fileshare.example,visit
+2026-10-06 22:27:00,usr_alice,WS-01,https://fileshare.example/share?page=16,fileshare.example,visit
+2026-10-06 22:28:30,usr_alice,WS-01,https://fileshare.example/share?page=17,fileshare.example,visit
+2026-10-06 22:30:00,usr_alice,WS-01,https://fileshare.example/share?page=18,fileshare.example,visit
+2026-10-06 22:31:30,usr_alice,WS-01,https://fileshare.example/share?page=19,fileshare.example,visit
+2026-10-06 22:33:00,usr_alice,WS-01,https://fileshare.example/share?page=20,fileshare.example,visit
+2026-10-06 22:34:30,usr_alice,WS-01,https://fileshare.example/share?page=21,fileshare.example,visit
+2026-10-06 22:36:00,usr_alice,WS-01,https://fileshare.example/share?page=22,fileshare.example,visit
+2026-10-06 22:37:30,usr_alice,WS-01,https://fileshare.example/share?page=23,fileshare.example,visit
