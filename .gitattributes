@@ -7,6 +7,18 @@
 # digests and make the drift check fail on Windows.
 backend/demo/scenarios/** text eol=lf
 
+# Deployment and container definitions must stay LF. A CRLF shebang makes
+# /usr/bin/env bash unresolvable on Linux, and CRLF inside a Dockerfile RUN
+# or a compose file is likewise a syntax error on the deploy host.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+.dockerignore text eol=lf
+Dockerfile text eol=lf
+backend/Dockerfile text eol=lf
+frontend/Dockerfile text eol=lf
+
 # Keep Python, TypeScript, and Markdown line endings stable too, so that
 # generated and authored content behave identically across platforms.
 *.py text eol=lf
