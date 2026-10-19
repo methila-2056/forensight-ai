@@ -34,6 +34,22 @@ function Say($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 # ---------------------------------------------------------------------------
 Say "Checking prerequisites"
 
+# Prompt for anything not already set, so the secrets are typed into your own
+# terminal and never travel through a chat transcript. Values already present
+# in the environment are reused, which makes the script re-runnable.
+if (-not $env:RENDER_API_KEY) {
+    Write-Host ""
+    Write-Host "  Render API key:" -ForegroundColor Yellow
+    Write-Host "  render.com -> Account Settings -> API Keys -> Create API Key" -ForegroundColor DarkGray
+    $env:RENDER_API_KEY = Read-Host "  Paste key"
+}
+if (-not $env:DATABASE_URL) {
+    Write-Host ""
+    Write-Host "  Neon DATABASE_URL (POOLED connection string):" -ForegroundColor Yellow
+    Write-Host "  Neon console -> Connection string -> Pooled. Remove '&channel_binding=require'." -ForegroundColor DarkGray
+    $env:DATABASE_URL = Read-Host "  Paste URL"
+}
+
 $missing = @()
 if (-not $env:RENDER_API_KEY) { $missing += "RENDER_API_KEY" }
 if (-not $env:DATABASE_URL)  { $missing += "DATABASE_URL" }
