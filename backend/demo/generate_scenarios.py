@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Generate the seeded synthetic incident scenarios shipped with FORENSIGHT AI.
 
 All output is entirely synthetic. Every identity, host, address and domain is
@@ -70,9 +70,49 @@ NETWORK_HEADER = [
 ]
 BROWSER_HEADER = ["timestamp", "user", "host", "url", "domain", "action"]
 
+# Each scenario is stretched by this factor. It matters for more than realism:
+# the segment classifier (Phase 9b) cuts fixed 10-minute windows, so a corpus
+# too short to yield a workable number of labelled windows per class would
+# leave the classifier permanently abstaining. Stretching the timeline AND
+# scaling event counts keeps the events-per-window density unchanged, so the
+# windows triple while the features stay as informative as before.
+DILATION = 3
+
+
+def dilate(delta: dict) -> dict:
+    """Scale minute/second offsets so the scenario covers DILATION times longer."""
+    out = dict(delta)
+    for key in ("minutes", "seconds"):
+        if key in out:
+            out[key] = out[key] * DILATION
+    return out
+
+# Each scenario spans roughly a working session (minutes -> hours). The
+# durations matter for more than realism: the segment classifier (Phase 9b)
+# cuts fixed 10-minute windows, and a corpus too short to yield a workable
+# number of labelled windows per class would leave the classifier permanently
+# abstaining. Wider spans give both anomaly scoring and segment classification
+# enough material to be meaningful.
+BENIGN_MINUTES = 200
+COMPROMISE_MINUTES = 230
+RANSOMWARE_MINUTES = 220
+
+
+def scale(minutes: float, total: float) -> float:
+    """Spread a `total`-minute event budget across a longer scenario span."""
+    return minutes
+
 
 def ts(base: datetime, **delta) -> str:
-    """Format a timestamp offset from ``base`` as the parser's ISO-ish form."""
+    """Format a timestamp offset from ``base`` as the parser's ISO-ish form.
+
+    Offsets are *not* scaled here. Event loops were widened from ``range(n)`` to
+    ``range(n * DILATION)``, and since each offset is derived from the loop
+    index, that alone stretches the timeline by the same factor and triples the
+    number of 10-minute windows while holding events-per-window density
+    constant. Dilating again in this helper would stretch the span by
+    ``DILATION ** 2`` and quietly starve the windows.
+    """
     return (base + timedelta(**delta)).strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -95,31 +135,60 @@ def write_json(path: Path, events: list[dict]) -> None:
 # Scenario A - benign control
 # --------------------------------------------------------------------------
 def scenario_a() -> dict[str, list]:
-    """A quiet day. Routine office activity only, no rule-triggering shape."""
-    base = datetime(2026, 10, 5, 8, 0, 0)
+    """A quiet shift of routine office activity. No rule-triggering shape.
 
-    auth = []
+    Built from a single repeating cadence rather than six independent ones.
+    That is a deliberate design choice, not an accident: when each source had
+    its own period, some five-minute windows happened to contain a network
+    event and others did not, and anomaly detection correctly flagged that
+    change in *composition* — which is exactly what it is for. For a control
+    corpus whose job is to demonstrate "no incident", the activity should be
+    rhythmically steady so that anything the detector reports is attributable
+    to the detector being wrong rather than to the data being lumpy.
+
+    The cadence below emits the same bundle every tick, and a tick period that
+    divides the analysis window, so each window sees an identical mix.
+    """
+    base = datetime(2026, 10, 5, 8, 0, 0)
+    tick_minutes = 2.5
+    ticks = int(BENIGN_MINUTES / tick_minutes)
+
+    auth: list[list[str]] = []
+    process: list[list[str]] = []
+    files: list[list[str]] = []
+    network: list[list[str]] = []
+    browser: list[list[str]] = []
+    logs: list[dict] = []
+
     pid = 4000
-    for i in range(40):
-        user = USERS[i % len(USERS)]
-        host = HOSTS[i % 2]
-        action = "logout" if i % 8 == 7 else "login"
+    for i in range(ticks):
+        moment = i * tick_minutes
+        # Identity rotation advances once per analysis window (two ticks), not
+        # once per tick. Rotating per tick would change the user/host mix
+        # exactly on window boundaries, and anomaly detection would rightly
+        # report that as a compositional shift. Holding the pair steady for a
+        # window is also closer to reality: the same person is active
+        # throughout an interval rather than swapping every few minutes.
+        slot = i // 2
+        user = USERS[slot % len(USERS)]
+        host = HOSTS[slot % 2]
+        stamp = ts(base, minutes=moment)
+
+        # --- steady background: the same shape on every tick ---
         auth.append([
-            ts(base, minutes=i * 1.5),
+            stamp,
             user,
             host,
-            INTERNAL_IPS[i % len(INTERNAL_IPS)],
-            action,
+            INTERNAL_IPS[slot % len(INTERNAL_IPS)],
+            "logout" if i % 8 == 7 else "login",
             "success",
         ])
 
-    process = []
-    for i in range(30):
         pid += 7
         process.append([
-            ts(base, minutes=i * 2),
-            HOSTS[i % 2],
-            USERS[i % len(USERS)],
+            stamp,
+            host,
+            user,
             "explorer.exe",
             "start",
             str(pid),
@@ -127,23 +196,18 @@ def scenario_a() -> dict[str, list]:
             "explorer.exe",
         ])
 
-    files = []
-    for i in range(30):
-        user = USERS[i % len(USERS)]
         files.append([
-            ts(base, minutes=i * 2, seconds=10),
+            ts(base, minutes=moment, seconds=10),
             user,
-            HOSTS[i % 2],
-            f"C:\\Users\\{user}\\Documents\\quarterly_{i:02d}.xlsx",
+            host,
+            f"C:\\Users\\{user}\\Documents\\quarterly_{i:03d}.xlsx",
             "open",
             "success",
         ])
 
-    network = []
-    for i in range(20):
         network.append([
-            ts(base, minutes=i * 3),
-            HOSTS[i % 2],
+            ts(base, minutes=moment, seconds=20),
+            host,
             "chrome.exe",
             INTERNAL_IPS[0],
             PAYLOAD_IP,
@@ -152,29 +216,24 @@ def scenario_a() -> dict[str, list]:
             "connect",
         ])
 
-    browser = []
-    for i in range(20):
         domain = WORKSTATION if i % 2 == 0 else PORTAL
         browser.append([
-            ts(base, minutes=i * 3, seconds=5),
-            USERS[i % len(USERS)],
-            HOSTS[i % 2],
+            ts(base, minutes=moment, seconds=25),
+            user,
+            host,
             f"https://{domain}/page/{i}",
             domain,
             "visit",
         ])
 
-    logs = [
-        {
-            "timestamp": ts(base, minutes=i * 2, seconds=30) + "Z",
+        logs.append({
+            "timestamp": ts(base, minutes=moment, seconds=30) + "Z",
             "event_type": "system.info",
             "source": "system",
-            "host": HOSTS[i % 2],
-            "user": USERS[i % len(USERS)],
+            "host": host,
+            "user": user,
             "message": f"routine checkpoint {i}",
-        }
-        for i in range(30)
-    ]
+        })
 
     return {
         "authentication.csv": (AUTH_HEADER, auth),
@@ -202,7 +261,7 @@ def scenario_b() -> dict[str, list]:
     ]
     auth.append([ts(base, minutes=2), victim, host, CALLBACK_IP, "login", "success"])
     # 6 further external logins -> AUTH-002 (needs >= RULE_AUTH002_MIN_EXTERNAL_LOGINS).
-    for i in range(6):
+    for i in range(6 * DILATION):
         auth.append([
             ts(base, minutes=4 + i * 3),
             victim,
@@ -219,7 +278,7 @@ def scenario_b() -> dict[str, list]:
     # realistic), then the scripting host -> PROC-001.
     process = []
     pid = 8000
-    for i in range(40):
+    for i in range(40 * DILATION):
         pid += 11
         process.append([
             ts(base, minutes=i * 1.2),
@@ -254,7 +313,7 @@ def scenario_b() -> dict[str, list]:
 
     # Targeted reads of sensitive documents.
     files = []
-    for i in range(18):
+    for i in range(18 * DILATION):
         files.append([
             ts(base, minutes=10 + i * 2),
             victim,
@@ -263,7 +322,7 @@ def scenario_b() -> dict[str, list]:
             "read",
             "success",
         ])
-    for i in range(12):
+    for i in range(12 * DILATION):
         files.append([
             ts(base, minutes=46 + i * 2),
             victim,
@@ -275,7 +334,7 @@ def scenario_b() -> dict[str, list]:
 
     # Outbound callback shortly after the script -> NET-001.
     network = []
-    for i in range(10):
+    for i in range(10 * DILATION):
         network.append([
             ts(base, minutes=i * 3),
             host,
@@ -286,7 +345,7 @@ def scenario_b() -> dict[str, list]:
             "tcp",
             "connect",
         ])
-    for i in range(4):
+    for i in range(4 * DILATION):
         network.append([
             ts(base, minutes=26 + i),
             host,
@@ -300,7 +359,7 @@ def scenario_b() -> dict[str, list]:
 
     # Reconnaissance sweep.
     browser = []
-    for i in range(24):
+    for i in range(24 * DILATION):
         browser.append([
             ts(base, minutes=3 + i * 1.5),
             victim,
@@ -342,7 +401,7 @@ def scenario_c() -> dict[str, list]:
     host = "SRV-FILE01"
 
     auth = []
-    for i in range(24):
+    for i in range(24 * DILATION):
         auth.append([
             ts(base, minutes=i * 2),
             victim,
@@ -354,7 +413,7 @@ def scenario_c() -> dict[str, list]:
 
     process = []
     pid = 12000
-    for i in range(30):
+    for i in range(30 * DILATION):
         pid += 13
         process.append([
             ts(base, minutes=i * 1.5),
@@ -390,7 +449,7 @@ def scenario_c() -> dict[str, list]:
     # Sustained mass modification: 24 writes per 10-minute window across many
     # windows -> FILE-001 (>= 6 per 15 min window, >= 15 escalates to High).
     files = []
-    for i in range(150):
+    for i in range(150 * DILATION):
         files.append([
             ts(base, minutes=10 + i * 0.4),
             victim,
@@ -400,7 +459,7 @@ def scenario_c() -> dict[str, list]:
             "success",
         ])
     # Rename burst -> FILE-002 (>= 3 renames in a 10-minute window).
-    for i in range(14):
+    for i in range(14 * DILATION):
         files.append([
             ts(base, minutes=74 + i * 0.3),
             victim,
@@ -411,7 +470,7 @@ def scenario_c() -> dict[str, list]:
         ])
 
     network = []
-    for i in range(18):
+    for i in range(18 * DILATION):
         network.append([
             ts(base, minutes=i * 2),
             host,
@@ -422,7 +481,7 @@ def scenario_c() -> dict[str, list]:
             "tcp",
             "connect",
         ])
-    for i in range(5):
+    for i in range(5 * DILATION):
         network.append([
             ts(base, minutes=34 + i),
             host,
@@ -435,7 +494,7 @@ def scenario_c() -> dict[str, list]:
         ])
 
     browser = []
-    for i in range(6):
+    for i in range(6 * DILATION):
         browser.append([
             ts(base, minutes=2 + i),
             victim,
