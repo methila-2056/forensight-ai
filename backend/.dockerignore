@@ -1,0 +1,22 @@
+# Local runtime state — must never enter the image, it is mounted as volumes.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Runtime data, backed by docker volumes in production.
+data/
+evidence_store/
+ml_artifacts/
+!data/.gitkeep
+!ml_artifacts/.gitkeep
+
+# Tests are not shipped in the runtime image.
+tests/
+pytest.ini
+requirements-dev.txt
+
+# Never bake secrets into an image; only .env.example is committed.
+.env

@@ -1,0 +1,74 @@
+# FORENSIGHT AI — single-host production deployment.
+#
+#   docker compose up -d --build
+#
+# The browser reaches everything through the frontend service on port 80; the
+# backend is not published to the host at all and is only reachable on the
+# internal compose network.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: foresight-backend:latest
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Absolute paths keep the state directories on their mounted volumes.
+      DATABASE_URL: sqlite:///./data/foresight.db
+      EVIDENCE_STORE_DIR: ./evidence_store
+    volumes:
+      - foresight-data:/app/data
+      - foresight-evidence:/app/evidence_store
+      - foresight-ml:/app/ml_artifacts
+    # Trained artifacts and the DB must be writable by uid 10001, so the
+    # volumes are pre-seeded by a one-shot init container rather than left
+    # root-owned from the image build.
+    depends_on:
+      init-storage:
+        condition: service_completed_successfully
+    networks:
+      - foresight
+    # Not published: internal only.
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: foresight-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - foresight
+
+  # One-shot: create the runtime directories with the right ownership, then
+  # exit. Keeps the application image free of any root-owned volume contents.
+  init-storage:
+    image: foresight-backend:latest
+    user: root
+    command: >-
+      sh -c "mkdir -p /app/data /app/evidence_store /app/ml_artifacts
+      && chown -R 10001:10001 /app/data /app/evidence_store /app/ml_artifacts"
+    volumes:
+      - foresight-data:/app/data
+      - foresight-evidence:/app/evidence_store
+      - foresight-ml:/app/ml_artifacts
+    restart: "no"
+    networks:
+      - foresight
+
+volumes:
+  foresight-data:
+  foresight-evidence:
+  foresight-ml:
+
+networks:
+  foresight:
+    driver: bridge
