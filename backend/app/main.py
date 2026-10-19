@@ -14,6 +14,7 @@ from app.routers import (
     analysis,
     assistant,
     cases,
+    classifier,
     correlation,
     dashboard,
     events,
@@ -64,6 +65,10 @@ app.include_router(assistant.router, prefix=config.API_PREFIX)
 app.include_router(reports.router, prefix=config.API_PREFIX)
 app.include_router(dashboard.router, prefix=config.API_PREFIX)
 app.include_router(workspace.router, prefix=config.API_PREFIX)
+# Segment classifier: intentionally last, and kept on its own router so the
+# supervised segment classifier is never conflated with Strategy A anomaly
+# detection served by the analysis router.
+app.include_router(classifier.router, prefix=config.API_PREFIX)
 
 
 @app.get("/", include_in_schema=False)

@@ -582,6 +582,11 @@ class ModelMetric(Base):
     f1: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     accuracy: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     feature_list: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # Full evaluation payload (per-class scores, confusion matrix, baseline and
+    # cross-validation figures). The scalar columns above stay for querying;
+    # this keeps the whole result so an API response can be served without
+    # retraining.
+    metrics_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 

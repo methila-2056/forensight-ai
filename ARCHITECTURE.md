@@ -197,8 +197,8 @@ Nothing is ever written to disk from an archive: member names are **display and 
 | Field | Definition |
 |---|---|
 | Concept | **Case/segment-level classification** — a label for a *time segment* of case activity. Never presented alongside event anomaly scores as the same thing. |
-| Training sample unit | **Fixed 10-minute window** of case activity. One sample = aggregated features of one window across all sources (counts per source type, distinct users/IPs, write rate, rename rate, external connections, off-hours ratio, mean/max event anomaly score, event-type entropy). Windows are cut identically for training and inference. |
-| Labels | From scenario generator provenance: normal-scenario windows → `benign`; compromise scenario → `benign` before the anchor event, `compromise` after; ransomware-like scenario → `ransomware_like` for impact windows. |
+| Training sample unit | **Fixed 10-minute window** of case activity — deliberately distinct from Strategy A's 5-minute windows, so the two signals are never conflated. One sample = aggregated features of one window across all sources (counts per source type, distinct users/IPs, write rate, rename rate, external connections, off-hours ratio, mean/max event anomaly score, event-type entropy). Windows are cut identically for training and inference. |
+| Labels | From **scenario provenance**, never from rule output or anomaly score (either would only re-learn the thing being measured). The benign control yields `benign`; the compromise corpus yields `benign` before its declared anchor and `compromise` after; the ransomware-like corpus yields `ransomware_like` after its anchor. Implemented in `engines/ml/classifier.py::SCENARIO_SPECS`. |
 | Model | `RandomForestClassifier(n_estimators=200, random_state=42, class_weight="balanced")` with `LogisticRegression` baseline. |
 | Evaluation | Stratified 75/25 split (seed 42) + 5-fold stratified CV; precision/recall/F1/accuracy/confusion matrix stored in `model_metrics`. |
 | Claims | **No real-world performance claims.** Mandatory label: **"Trained and evaluated on synthetic demonstration data."** repeated in the report's Limitations. |
@@ -304,9 +304,9 @@ Two separate corpora ship, both entirely synthetic. Every identity, host, addres
 
 | Scenario | Events | Fires | Expected outcome |
 |---|---|---|---|
-| **A — Benign control** | 170 | *(none)* | Zero findings of any kind. Demonstrates the pipeline does not raise alarms without cause; the report conclusion reads `No suspicious findings were recorded…`. |
-| **B — Account compromise** | 151 | `AUTH-001`, `AUTH-003`, `PROC-001` + 1 ML window | Brute-force burst then success, rapid multi-origin login, scripting host with evasion tokens, reconnaissance browsing, targeted reads. |
-| **C — Ransomware-like** | 269 | `PROC-001`, `FILE-001`, `FILE-002` | Payload download, scripting host, sustained mass modification, rename burst. Conclusion wording: *"Evidence is consistent with ransomware-like activity and requires investigator validation."* |
+| **A — Benign control** | 480 | *(no rule findings)* | No pattern rule fires on ordinary office activity. See the caveat below on anomaly windows. |
+| **B — Account compromise** | 379 | `AUTH-001`, `AUTH-003`, `PROC-001` + 1 ML window | Brute-force burst then success, rapid multi-origin login, scripting host with evasion tokens, reconnaissance browsing, targeted reads. |
+| **C — Ransomware-like** | 763 | `PROC-001`, `FILE-001`, `FILE-002` | Payload download, scripting host, sustained mass modification, rename burst. Conclusion wording: *"Evidence is consistent with ransomware-like activity and requires investigator validation."* |
 
 Scenario shapes: **A** routine office activity only. **B** failed-login burst → success → recon browsing → PowerShell `-nop -w hidden -enc` → targeted document reads. **C** browser download → `powershell -enc` / `certutil` → 150 sustained file writes spread across windows → 14-file rename burst → outbound callback.
 

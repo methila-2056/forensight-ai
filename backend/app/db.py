@@ -45,6 +45,11 @@ _LEGACY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "correlations": ("correlation_uid", "correlation_type"),
     "investigation_groups": ("group_uid", "title", "severity"),
     "correlation_runs": ("run_uid", "status"),
+    # Phase 9b: model_metrics gained `metrics_json`, which holds the full
+    # classifier evaluation payload. An existing database created before that
+    # column cannot read the row back, so it goes through the same
+    # recreate-if-empty guard as every other legacy table.
+    "model_metrics": ("metrics_json",),
 }
 
 

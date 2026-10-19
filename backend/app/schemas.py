@@ -342,6 +342,58 @@ class NoteListResponse(BaseModel):
     append_only: bool = True
 
 
+# Segment classifier (Phase 9b) --------------------------------------------
+#
+# These are synthetic-data figures. `synthetic_label` and `disclaimer` are
+# required on every response so a metric can never be quoted without its
+# caveat attached.
+
+
+class ClassifierMetricsResponse(BaseModel):
+    trained: bool = False
+    model_name: str = ""
+    dataset_desc: str = ""
+    split_desc: str = ""
+    accuracy: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    f1: Optional[float] = None
+    per_class: dict[str, Any] = {}
+    confusion_matrix: list[list[int]] = []
+    baseline_accuracy: Optional[float] = None
+    cv_accuracy_mean: Optional[float] = None
+    cv_accuracy_std: Optional[float] = None
+    cv_folds: int = 0
+    feature_list: list[str] = []
+    window_count: int = 0
+    class_counts: dict[str, int] = {}
+    abstained: bool = False
+    abstained_reason: Optional[str] = None
+    reason: Optional[str] = None
+    corpora_available: bool = False
+    config: dict[str, Any] = {}
+    synthetic_label: str = ""
+    disclaimer: str = ""
+
+
+class ClassifierResultItem(BaseModel):
+    case_id: str
+    window_start: datetime
+    window_end: datetime
+    predicted_label: str
+    class_score: float
+    model_version: str
+    synthetic_label: str
+    disclaimer: str
+
+
+class ClassifierResultsResponse(BaseModel):
+    case_id: str
+    results: list[ClassifierResultItem] = []
+    total: int = 0
+    limit: int = 100
+
+
 class FindingEvidenceResponse(BaseModel):
     evidence_id: str
     original_filename: str
