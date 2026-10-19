@@ -197,14 +197,14 @@ def test_boundary_lengths_are_accepted(client, make_case, upload_evidence):
 # ---------------------------------------------------------------------------
 
 def test_raw_evidence_bytes_unchanged_across_full_product_lifecycle(
-    client, make_case, upload_evidence
+    client, make_case, upload_evidence, configured_store
 ):
     result = _run_full_pipeline(client, make_case, upload_evidence)
     case_id = result["case"]["case_id"]
     first = result["uploads"][0]
     evidence_id, original_hash = first["evidence_id"], first["sha256"]
 
-    store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+    store = configured_store
     original_bytes = store.read_bytes(case_id, evidence_id)
 
     # Every derived-data phase touches the case without touching raw storage.
@@ -297,5 +297,9 @@ def test_init_db_is_idempotent_and_foreign_keys_enforced():
     )
     assert cases >= 0  # schema is queryable after repeated initialisation
 
-    with engine.connect() as connection:
-        assert connection.execute(text("PRAGMA foreign_keys")).scalar() == 1
+    # SQLite requires foreign_keys to be switched on per connection; on
+    # PostgreSQL the constraint is always enforced, so the pragma has no
+    # equivalent and asserting it would be meaningless rather than failing.
+    if config.DATABASE_URL.startswith("sqlite"):
+        with engine.connect() as connection:
+            assert connection.execute(text("PRAGMA foreign_keys")).scalar() == 1

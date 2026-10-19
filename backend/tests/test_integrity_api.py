@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -81,7 +82,7 @@ def test_verify_detects_reference_hash_mismatch(client, make_case, upload_eviden
 
 
 def test_controlled_integrity_test_mismatch_and_original_untouched(
-    client, make_case, upload_evidence
+    client, make_case, upload_evidence, configured_store
 ):
     case = make_case(name="Controlled test")
     uploaded = upload_evidence(case["case_id"], "authentication.csv", CSV_BODY).json()
@@ -107,10 +108,15 @@ def test_controlled_integrity_test_mismatch_and_original_untouched(
     assert verify["computed_hash"] == uploaded["sha256"]
 
     # Raw store bytes must be byte-for-byte identical to the upload.
-    store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+    store = configured_store
     assert store.read_bytes(case["case_id"], evidence_id) == CSV_BODY
 
 
+@pytest.mark.skipif(
+    config.EVIDENCE_STORAGE_BACKEND == "database",
+    reason="Asserts the file-backed raw store's on-disk layout; under the "
+           "database backend there is deliberately no per-case directory.",
+)
 def test_controlled_test_does_not_create_raw_evidence_files(
     client, make_case, upload_evidence
 ):
@@ -130,7 +136,9 @@ def test_controlled_test_does_not_create_raw_evidence_files(
     assert any(controlled_root.iterdir()), "A demonstration copy should exist outside raw storage"
 
 
-def test_raw_evidence_immutable_across_full_phase1_flow(client, make_case, upload_evidence):
+def test_raw_evidence_immutable_across_full_phase1_flow(
+    client, make_case, upload_evidence, configured_store
+):
     case = make_case(name="Immutable")
     uploaded = upload_evidence(case["case_id"], "authentication.csv", CSV_BODY).json()
     original_hash = uploaded["sha256"]
@@ -140,7 +148,7 @@ def test_raw_evidence_immutable_across_full_phase1_flow(client, make_case, uploa
     client.post(f"/api/evidence/{uploaded['evidence_id']}/verify")
     client.get(f"/api/cases/{case['case_id']}/evidence")
 
-    store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+    store = configured_store
     stored = store.read_bytes(case["case_id"], uploaded["evidence_id"])
     assert stored == CSV_BODY
     assert hashlib.sha256(stored).hexdigest() == original_hash

@@ -27,7 +27,8 @@ from app.models import (
 )
 from app.security.uploads import validate_evidence_file
 from app.services import custody
-from app.storage.raw_store import RawEvidenceExistsError, RawEvidenceStore
+from app.storage.raw_store import RawEvidenceExistsError
+from app.storage.factory import get_evidence_store
 
 
 def _next_evidence_id(db: Session) -> str:
@@ -65,7 +66,7 @@ def upload_evidence(
     parsed_type = _parse_evidence_type(evidence_type)
 
     evidence_id = _next_evidence_id(db)
-    store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+    store = get_evidence_store(db)
     try:
         stored = store.store_once(case.case_id, evidence_id, display_name, data)
     except RawEvidenceExistsError as exc:

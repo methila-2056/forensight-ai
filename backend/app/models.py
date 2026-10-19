@@ -20,12 +20,14 @@ from typing import Optional
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -248,6 +250,33 @@ class Evidence(Base):
 
     case: Mapped["Case"] = relationship("Case", back_populates="evidence")
     events: Mapped[list["ForensicEvent"]] = relationship("ForensicEvent")
+
+
+class EvidenceBlob(Base):
+    """Raw evidence bytes held in the database (deployment phase portability).
+
+    Architecture §7 requires that raw bytes are written exactly once and never
+    rewritten in place. This table exists so that deployment can target a host
+    with an ephemeral filesystem (Render's free tier cannot mount a persistent
+    disk) without weakening that guarantee: the one-row-per-evidence primary
+    key plus the exclusive insert below give the same write-once semantics the
+    filesystem store gets from its ``"xb"`` open mode.
+
+    ``LargeBinary`` maps to BYTEA on PostgreSQL and BLOB on SQLite, so the
+    same model serves local development and a managed PostgreSQL database.
+    """
+
+    __tablename__ = "evidence_blobs"
+    __table_args__ = (UniqueConstraint("evidence_ref", name="uq_evidence_blobs_ref"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # The public, human-facing evidence id (EV-0001), not the surrogate key.
+    evidence_ref: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    stored_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
 
 class IntegrityCheck(Base):

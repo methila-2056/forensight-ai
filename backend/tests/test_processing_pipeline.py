@@ -137,6 +137,12 @@ def test_unknown_format_failed_run_persisted_and_evidence_untouched(
     assert _events(client, case["case_id"])["total"] == 0
 
 
+@pytest.mark.skipif(
+    config.EVIDENCE_STORAGE_BACKEND == "database",
+    reason="Corrupts the stored original by writing the file directly; under "
+           "the database backend the row is immutable through the API. "
+           "See test_integrity_mismatch_blocks_processing_database_backend.",
+)
 def test_integrity_mismatch_blocks_processing(client, make_case, upload_evidence):
     case = make_case()
     upload = upload_evidence(case["case_id"], "auth.csv", CLEAN_CSV)
@@ -146,6 +152,54 @@ def test_integrity_mismatch_blocks_processing(client, make_case, upload_evidence
     store = Path(config.EVIDENCE_STORE_DIR) / case["case_id"]
     stored = next(store.glob(f"{evidence_id}.*"))
     stored.write_bytes(stored.read_bytes() + b"tampered")
+
+    response = client.post(
+        f"/api/cases/{case['case_id']}/process",
+        json={"evidence_ids": [evidence_id]},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "EVIDENCE_INTEGRITY_MISMATCH"
+
+    runs = client.get(f"/api/cases/{case['case_id']}/processing-runs").json()
+    failed = next(run for run in runs if run["evidence_id"] == evidence_id)
+    assert failed["status"] == "Failed"
+    assert failed["error_code"] == "EVIDENCE_INTEGRITY_MISMATCH"
+    assert _events(client, case["case_id"])["total"] == 0
+
+
+@pytest.mark.skipif(
+    config.EVIDENCE_STORAGE_BACKEND != "database",
+    reason="Exercises the BYTEA blob row; the file-backed backend is covered "
+           "by test_integrity_mismatch_blocks_processing.",
+)
+def test_integrity_mismatch_blocks_processing_database_backend(
+    client, make_case, upload_evidence
+):
+    """Database-backend equivalent: corrupt the stored BYTEA out-of-band.
+
+    Simulates storage corruption (a bad disk, a truncated write, a tampered
+    backup) by mutating the blob row directly with SQL, which is the only way
+    to reach the bytes under a write-once store. The application must still
+    detect the mismatch at processing time and refuse to proceed.
+    """
+    from app.db import SessionLocal
+    from app.models import EvidenceBlob
+
+    case = make_case()
+    upload = upload_evidence(case["case_id"], "auth.csv", CLEAN_CSV)
+    evidence_id = upload.json()["evidence_id"]
+
+    session = SessionLocal()
+    try:
+        blob = (
+            session.query(EvidenceBlob)
+            .filter(EvidenceBlob.evidence_ref == evidence_id)
+            .one()
+        )
+        blob.content = bytes(blob.content) + b"tampered"
+        session.commit()
+    finally:
+        session.close()
 
     response = client.post(
         f"/api/cases/{case['case_id']}/process",

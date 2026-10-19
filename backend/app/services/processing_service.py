@@ -52,7 +52,8 @@ from app.models import (
     utcnow,
 )
 from app.services import custody, evidence_service
-from app.storage.raw_store import RawEvidenceStore, RawEvidenceStoreError
+from app.storage.raw_store import RawEvidenceStoreError
+from app.storage.factory import get_evidence_store
 
 logger = logging.getLogger("forensight.processing")
 
@@ -215,7 +216,7 @@ def process_evidence(
     }
 
     try:
-        store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+        store = get_evidence_store(db)
         try:
             data = store.read_bytes(case.case_id, evidence.evidence_id)
         except RawEvidenceStoreError as exc:

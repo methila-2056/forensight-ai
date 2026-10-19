@@ -40,10 +40,36 @@ def _resolve_sqlite_url(raw: str) -> str:
 
 DATABASE_URL = _resolve_sqlite_url(os.getenv("DATABASE_URL", "sqlite:///./data/foresight.db"))
 
+IS_POSTGRES = DATABASE_URL.startswith(("postgresql://", "postgresql+psycopg://"))
+
 EVIDENCE_STORE_DIR = _resolve_path(os.getenv("EVIDENCE_STORE_DIR", "./evidence_store"))
+
+# ---------------------------------------------------------------------------
+# Raw evidence storage backend (deployment portability)
+# ---------------------------------------------------------------------------
+# "local"     — write-once files under EVIDENCE_STORE_DIR (default; what the
+#               original Phase 0-2 design specifies).
+# "database"  — raw bytes held in the database as BYTEA. Required when the
+#               host filesystem is ephemeral, because Render's free tier cannot
+#               mount a persistent disk; without this, uploaded evidence would
+#               silently vanish on the next container restart.
+#
+# "auto" derives the backend from the database URL so a single managed
+# PostgreSQL deployment needs no second setting.
+EVIDENCE_STORAGE_BACKEND = os.getenv("EVIDENCE_STORAGE_BACKEND", "auto").strip().lower()
+if EVIDENCE_STORAGE_BACKEND not in {"auto", "local", "database"}:
+    raise RuntimeError(
+        "EVIDENCE_STORAGE_BACKEND must be one of 'auto', 'local' or 'database'"
+    )
+if EVIDENCE_STORAGE_BACKEND == "auto":
+    EVIDENCE_STORAGE_BACKEND = "database" if IS_POSTGRES else "local"
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
+# Ceiling on a single stored blob. Guards against filling a managed database's
+# storage quota with one upload; the upload size policy still applies first.
+MAX_EVIDENCE_BLOB_BYTES = int(os.getenv("MAX_EVIDENCE_BLOB_BYTES", str(MAX_UPLOAD_BYTES)))
 
 ALLOWED_EXTENSIONS = frozenset(
     ext.strip().lower().lstrip(".")

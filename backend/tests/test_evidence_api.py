@@ -35,10 +35,12 @@ def test_upload_csv_records_real_sha256(client, make_case, upload_evidence):
     assert body["record_count"] is None  # parsing is Phase 2
 
 
-def test_uploaded_bytes_are_stored_verbatim_in_raw_store(client, make_case, upload_evidence):
+def test_uploaded_bytes_are_stored_verbatim_in_raw_store(
+    client, make_case, upload_evidence, configured_store
+):
     case = make_case(name="Immutability")
     uploaded = upload_evidence(case["case_id"], "authentication.csv", CSV_BODY).json()
-    store = RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+    store = configured_store
     stored_bytes = store.read_bytes(case["case_id"], uploaded["evidence_id"])
     assert stored_bytes == CSV_BODY
     assert hashlib.sha256(stored_bytes).hexdigest() == uploaded["sha256"]

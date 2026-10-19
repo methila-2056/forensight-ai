@@ -18,9 +18,31 @@ from sqlalchemy.orm import Session, sessionmaker
 from app import config
 from app.models import Base
 
+# Managed PostgreSQL (Neon) closes idle sessions and scales to zero, so a
+# long-lived pooled connection can be severed between requests. Recycling
+# connections and validating on checkout turns that into a transparent retry
+# rather than a 500. The pool is deliberately small because the free tier caps
+# concurrent connections far below what a default pool would open.
+_POSTGRES_POOL_KWARGS: dict = {
+    "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 5,
+    "pool_recycle": 300,
+}
+
 
 def _build_engine() -> Engine:
     kwargs: dict = {"future": True}
+
+    if config.IS_POSTGRES:
+        # A bare postgresql:// URL has no driver; SQLAlchemy 2.0 needs the
+        # psycopg dialect named explicitly.
+        url = config.DATABASE_URL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        kwargs.update(_POSTGRES_POOL_KWARGS)
+        return create_engine(url, **kwargs)
+
     if config.DATABASE_URL.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
     engine = create_engine(config.DATABASE_URL, **kwargs)
@@ -59,7 +81,15 @@ def _drop_stale_tables() -> None:
     Only empty tables are dropped. A non-empty stale table raises: its rows
     were written under enum/CHECK constraints that the current models cannot
     read back, so a silent drop would destroy investigator history.
+
+    This guard exists only to repair SQLite databases created by earlier
+    phases. A managed PostgreSQL deployment starts from an empty schema, so
+    the repair is skipped there rather than issuing needless catalogue
+    queries on every boot.
     """
+    if not config.DATABASE_URL.startswith("sqlite"):
+        return
+
     inspector = inspect(engine)
     existing = set(inspector.get_table_names())
     with engine.begin() as connection:

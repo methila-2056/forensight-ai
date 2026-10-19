@@ -12,7 +12,10 @@ import tempfile
 from pathlib import Path
 
 _TMP = Path(tempfile.mkdtemp(prefix="foresight_p0_"))
-os.environ["DATABASE_URL"] = f"sqlite:///{(_TMP / 'test.db').as_posix()}"
+# Defaults to a throwaway SQLite file, but an externally supplied DATABASE_URL
+# wins so the same suite can be run against a real PostgreSQL server — which is
+# how the Neon deployment path is verified before shipping.
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{(_TMP / 'test.db').as_posix()}")
 os.environ["EVIDENCE_STORE_DIR"] = str(_TMP / "evidence_store")
 os.environ.setdefault("ANOMALY_THRESHOLD", "0.72")
 os.environ.setdefault("RANDOM_STATE", "42")
@@ -33,6 +36,30 @@ def client() -> TestClient:
 @pytest.fixture()
 def raw_store(tmp_path: Path) -> RawEvidenceStore:
     return RawEvidenceStore(tmp_path / "evidence_store")
+
+
+@pytest.fixture()
+def configured_store():
+    """The evidence store the application is actually configured to use.
+
+    Integration tests must assert against this rather than instantiating
+    ``RawEvidenceStore`` directly, otherwise they silently pass against an
+    empty filesystem when ``EVIDENCE_STORAGE_BACKEND=database`` is exercised
+    (the managed-PostgreSQL deployment path, where bytes live in BYTEA and
+    nothing is written to disk).
+    """
+    from app import config
+    from app.db import SessionLocal
+    from app.storage.factory import get_evidence_store
+
+    if config.EVIDENCE_STORAGE_BACKEND == "database":
+        session = SessionLocal()
+        try:
+            yield get_evidence_store(session)
+        finally:
+            session.close()
+    else:
+        yield RawEvidenceStore(config.EVIDENCE_STORE_DIR)
 
 
 @pytest.fixture()

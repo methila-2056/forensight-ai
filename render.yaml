@@ -1,0 +1,62 @@
+# FORENSIGHT AI — Render blueprint (blueprint: https://render.com/docs/blueprint-spec)
+#
+# Backend API only. The frontend is deployed separately to Vercel (vercel.json),
+# which is why CORS_ORIGINS must list that deployment's URL.
+#
+# Free plan notes:
+#   * The service sleeps after 15 minutes of inactivity and cold-starts on the
+#     next request, so the first call after an idle period can take ~30s.
+#   * The filesystem is ephemeral and no persistent disk can be attached, which
+#     is why EVIDENCE_STORAGE_BACKEND is pinned to "database" — uploaded
+#     evidence is held as BYTEA in PostgreSQL instead of as files on disk.
+#   * PostgreSQL is provided by Neon; set DATABASE_URL to its pooled connection
+#     string. Use the *pooled* (transaction mode) URL so the many short-lived
+#     API connections share one Neon connection.
+
+services:
+  - type: web
+    name: foresight-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Paste Neon DATABASE_URL (pooled) in the Render dashboard. Use sync:false
+      # so the value is prompted for rather than committed.
+      - key: DATABASE_URL
+        sync: false
+
+      # Raw evidence bytes live in the database, not on the container disk.
+      - key: EVIDENCE_STORAGE_BACKEND
+        value: database
+
+      # The Vercel frontend origin, e.g. https://foresight-ai.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Free-tier Postgres capacity is small; keep single-evidence uploads
+      # well under it. Must be >= the largest file you intend to ingest.
+      - key: MAX_UPLOAD_MB
+        value: "25"
+
+      - key: APP_NAME
+        value: FORENSIGHT AI
+
+      - key: APP_VERSION
+        value: "0.1.0"
+
+      # Deterministic ML thresholds; these are the documented spec defaults and
+      # are pinned here so a cold start cannot change analysis results.
+      - key: ANOMALY_THRESHOLD
+        value: "0.72"
+      - key: RANDOM_STATE
+        value: "42"
+      - key: ANALYSIS_WINDOW_MINUTES
+        value: "5"
+      - key: ML_Z_SIGMAS
+        value: "2.0"
+      - key: ML_MIN_WINDOWS
+        value: "8"

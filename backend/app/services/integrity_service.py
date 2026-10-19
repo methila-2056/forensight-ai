@@ -26,11 +26,12 @@ from app.models import (
     utcnow,
 )
 from app.services import custody
-from app.storage.raw_store import RawEvidenceStore, RawEvidenceStoreError, sha256_bytes
+from app.storage.factory import get_evidence_store
+from app.storage.raw_store import RawEvidenceStoreError, sha256_bytes
 
 
-def _store() -> RawEvidenceStore:
-    return RawEvidenceStore(config.EVIDENCE_STORE_DIR)
+def _store(db: Session):
+    return get_evidence_store(db)
 
 
 def _controlled_test_root() -> Path:
@@ -45,7 +46,7 @@ def verify_evidence(
     actor: str = "system",
 ) -> dict:
     """Recompute SHA-256 of the stored original and compare with the reference hash."""
-    store = _store()
+    store = _store(db)
     try:
         verification = store.verify_hash(case.case_id, evidence.evidence_id, evidence.original_hash)
     except RawEvidenceStoreError as exc:
@@ -121,7 +122,7 @@ def controlled_integrity_test(
     actor: str = "system",
 ) -> dict:
     """Demonstrate a hash mismatch using a modified COPY. Original stays untouched."""
-    store = _store()
+    store = _store(db)
     try:
         original_bytes = store.read_bytes(case.case_id, evidence.evidence_id)
     except RawEvidenceStoreError as exc:
@@ -132,14 +133,24 @@ def controlled_integrity_test(
     ).computed_hash
 
     # 1. Copy the original into a separate controlled-test area.
-    test_root = _controlled_test_root() / case.case_id
-    test_root.mkdir(parents=True, exist_ok=True)
+    #    The copy is a demonstration artifact only. It is persisted outside the
+    #    raw store when the filesystem allows it, but a host whose filesystem is
+    #    read-only or ephemeral must not fail the test — the hash comparison in
+    #    step 3 below is computed from the in-memory copy either way.
+    copy_bytes = original_bytes + b"\nCONTROLLED-TAMPER\n"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-    copy_path = test_root / f"{evidence.evidence_id}-{stamp}.copy"
-    copy_path.write_bytes(original_bytes)
+    try:
+        test_root = _controlled_test_root() / case.case_id
+        test_root.mkdir(parents=True, exist_ok=True)
+        copy_path = test_root / f"{evidence.evidence_id}-{stamp}.copy"
+        copy_path.write_bytes(original_bytes)
 
-    # 2. Modify ONLY the copy.
-    copy_path.write_bytes(copy_bytes := (copy_path.read_bytes() + b"\nCONTROLLED-TAMPER\n"))
+        # 2. Modify ONLY the copy.
+        copy_path.write_bytes(copy_bytes)
+    except OSError:
+        # Ephemeral or read-only deployment filesystem: keep the demonstration
+        # in memory rather than failing the integrity test.
+        copy_path = None
 
     # 3. Hash the modified copy and compare against the recorded reference hash.
     copy_hash = sha256_bytes(copy_bytes)

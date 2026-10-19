@@ -18,6 +18,7 @@ backend/demo/scenarios/** text eol=lf
 Dockerfile text eol=lf
 backend/Dockerfile text eol=lf
 frontend/Dockerfile text eol=lf
+frontend/vercel.json text eol=lf
 
 # Keep Python, TypeScript, and Markdown line endings stable too, so that
 # generated and authored content behave identically across platforms.
