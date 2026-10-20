@@ -6,8 +6,9 @@ writes; every figure is a count, sum, or grouping of stored rows. Absent data
 is reported as zero — no figure is ever fabricated or extrapolated.
 
 Per-case rows are flagged with the canonical synthetic marker when the case
-was flagged ``demo`` or any of its raw records carries the demonstration
-label, matching the report layer's synthetic detection.
+was flagged ``demo`` or its description, an evidence source description, or
+any raw record carries the demonstration label — shared detection from the
+report and workspace layers (``app.services.synthetic``).
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from app.schemas import (
     ProcessingSummary,
     RunSummary,
 )
+from app.services.synthetic import synthetic_case_ids
 
 _ANALYZE_STAGE = RunStage.ANALYZE.value
 _VERIFIED = "VERIFIED"
@@ -108,17 +110,6 @@ def _integrity_per_case(
     return total, verified, mismatch
 
 
-def _synthetic_case_ids(db: Session) -> set[int]:
-    """Case PKs whose raw records carry the canonical demonstration marker."""
-    evidence_map = dict(db.execute(select(Evidence.id, Evidence.case_id)).all())
-    marker_rows = db.execute(
-        select(RawRecord.evidence_id).where(
-            RawRecord.content.like(f"%{terminology.DEMO_LABEL}%")
-        )
-    ).all()
-    return {evidence_map[ev_id] for ev_id, in marker_rows if ev_id in evidence_map}
-
-
 def _ml_summary(db: Session) -> MlSummary:
     """Aggregate persist ML run statistics from analyze-stage completed runs."""
     runs = db.scalars(
@@ -166,7 +157,7 @@ def _build_per_case_kpis(db: Session) -> list[CaseKpi]:
     custody_by_case = _count_by_case(db, ChainOfCustody)
     queries_by_case = _count_by_case(db, AssistantQuery)
     integrity_total, integrity_verified, integrity_mismatch = _integrity_per_case(db)
-    synthetic_cases = _synthetic_case_ids(db)
+    synthetic_cases = synthetic_case_ids(db)
 
     return [
         CaseKpi(
@@ -179,9 +170,7 @@ def _build_per_case_kpis(db: Session) -> list[CaseKpi]:
             last_activity=case.last_activity,
             demo=case.demo,
             synthetic_label=(
-                terminology.DEMO_LABEL
-                if case.demo or case.id in synthetic_cases
-                else None
+                terminology.DEMO_LABEL if case.id in synthetic_cases else None
             ),
             evidence_count=evidence_by_case.get(case.id, 0),
             event_count=events_by_case.get(case.id, 0),

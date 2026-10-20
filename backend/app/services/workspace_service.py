@@ -28,7 +28,6 @@ from app.models import (
     IntegrityCheck,
     MlFinding,
     ProcessingRun,
-    RawRecord,
     RuleFinding,
 )
 from app.schemas import (
@@ -52,6 +51,7 @@ from app.schemas import (
     WorkspaceReviewSummary,
 )
 from app.services import correlate_service, report_service
+from app.services.synthetic import case_is_synthetic
 
 # Bounded payload caps for the compact workspace view.
 WORKSPACE_FINDINGS_LIMIT = 50
@@ -67,27 +67,6 @@ _OPEN_STATUSES = {"New", "Under Review"}
 
 def _scalar(db: Session, stmt) -> int:
     return db.scalar(stmt) or 0
-
-
-def _synthetic(db: Session, case: Case) -> str | None:
-    """Canonical demonstration label when the case carries it."""
-    if case.demo:
-        return terminology.DEMO_LABEL
-    evidence = list(
-        db.scalars(select(Evidence.id).where(Evidence.case_id == case.id))
-    )
-    if not evidence:
-        return None
-    marker = _scalar(
-        db,
-        select(func.count())
-        .select_from(RawRecord)
-        .where(
-            RawRecord.evidence_id.in_(evidence),
-            RawRecord.content.like(f"%{terminology.DEMO_LABEL}%"),
-        ),
-    )
-    return terminology.DEMO_LABEL if marker else None
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +384,9 @@ def _case_summary(
         created_at=case.created_at,
         last_activity=case.last_activity,
         demo=case.demo,
-        synthetic_label=_synthetic(db, case),
+        synthetic_label=(
+            terminology.DEMO_LABEL if case_is_synthetic(db, case) else None
+        ),
         processing_status=processing.label,
         integrity_status=integrity_status,
         evidence_count=len(items),

@@ -32,7 +32,7 @@ from collections import Counter
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import terminology
@@ -53,6 +53,7 @@ from app.models import (
     utcnow,
 )
 from app.services import analysis_service, correlate_service, custody, processing_service
+from app.services.synthetic import case_is_synthetic
 
 # ---------------------------------------------------------------------------
 # Bounded output caps (module-level constants; not environment variables).
@@ -138,22 +139,6 @@ def _event_count(db: Session, case: Case) -> int:
         )
         or 0
     )
-
-
-def _is_synthetic(db: Session, case: Case) -> bool:
-    if case.demo:
-        return True
-    marker = db.scalar(
-        select(
-            exists().where(
-                RawRecord.content.like(f"%{terminology.DEMO_LABEL}%"),
-                RawRecord.evidence_id.in_(
-                    select(Evidence.id).where(Evidence.case_id == case.id)
-                ),
-            )
-        )
-    )
-    return bool(marker)
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +602,7 @@ def _sections(db: Session, case: Case) -> dict[str, Any]:
     """Deterministic, fixed-order report sections (identity fields excluded)."""
     evidence = _case_evidence(db, case)
     events_total = _event_count(db, case)
-    synthetic = _is_synthetic(db, case)
+    synthetic = case_is_synthetic(db, case)
 
     findings_total, rule_ml_total = 0, 0
     rows, findings_total = analysis_service.list_findings(
