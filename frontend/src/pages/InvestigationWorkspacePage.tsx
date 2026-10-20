@@ -359,31 +359,8 @@ export default function InvestigationWorkspacePage(): JSX.Element {
     }
   };
 
-  if (error) {
-    return <ErrorBox message={error} />;
-  }
-  if (!data) {
-    return (
-      <p className="font-mono text-xs uppercase tracking-widest text-slate-500">
-        Loading workspace…
-      </p>
-    );
-  }
-
-  const { case: wsCase } = data;
-
-  const evidenceRows = data.evidence;
-  const findingRows = data.review_summary.queue;
-  const timelineEntries = data.timeline_summary.entries;
-  const filteredTimeline = significanceFilter
-    ? timelineEntries.filter((entry) => entry.significance === significanceFilter)
-    : timelineEntries;
-  const evidenceAnchor = data.evidence.find(
-    (item) => item.evidence_id === deepEvidence,
-  );
-
   const flowNodes = useMemo<Node[]>(() => {
-    const graph = data.graph_summary;
+    const graph = data?.graph_summary;
     if (!graph || graph.nodes.length === 0) return [];
     const byType: Record<GraphNodeData["type"], GraphNodeData[]> = {
       evidence: [],
@@ -423,10 +400,10 @@ export default function InvestigationWorkspacePage(): JSX.Element {
       });
     });
     return nodes;
-  }, [data.graph_summary]);
+  }, [data]);
 
   const flowEdges = useMemo<Edge[]>(() => {
-    const graph = data.graph_summary;
+    const graph = data?.graph_summary;
     if (!graph) return [];
     const colors: Record<string, string> = {
       contains: "#475569",
@@ -444,7 +421,30 @@ export default function InvestigationWorkspacePage(): JSX.Element {
       style: { stroke: colors[edge.relation] ?? "#475569" },
       markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
     }));
-  }, [data.graph_summary]);
+  }, [data]);
+
+  if (error) {
+    return <ErrorBox message={error} />;
+  }
+  if (!data) {
+    return (
+      <p className="font-mono text-xs uppercase tracking-widest text-slate-500">
+        Loading workspace…
+      </p>
+    );
+  }
+
+  const { case: wsCase } = data;
+
+  const evidenceRows = data.evidence;
+  const findingRows = data.review_summary.queue;
+  const timelineEntries = data.timeline_summary.entries;
+  const filteredTimeline = significanceFilter
+    ? timelineEntries.filter((entry) => entry.significance === significanceFilter)
+    : timelineEntries;
+  const evidenceAnchor = data.evidence.find(
+    (item) => item.evidence_id === deepEvidence,
+  );
 
   return (
     <div className="space-y-8">

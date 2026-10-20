@@ -306,8 +306,16 @@ REPORT_LIMIT_DATA = (
 
 REPORT_ML_STATEMENT = (
     "The ML component identified statistically unusual activity relative to "
-    "the configured detection strategy; anomaly scores are not proof of "
-    "malicious activity."
+    "the configured detection strategy; these are statistical signals "
+    "requiring investigator review, not proof of malicious activity."
+)
+REPORT_ML_STATEMENT_ABSTAINED = (
+    "Anomaly detection abstained for this case, so no ML conclusion was "
+    "produced and no ML finding was created."
+)
+REPORT_ML_STATEMENT_NO_FINDINGS = (
+    "The ML component ran without abstaining, and no ML findings were "
+    "recorded for this case."
 )
 
 # ---------------------------------------------------------------------------

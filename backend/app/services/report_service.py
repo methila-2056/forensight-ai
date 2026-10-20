@@ -542,6 +542,15 @@ def _ml_section(db: Session, case: Case) -> dict[str, Any]:
     runs = analysis_service.runs_for_case(db, case)
     latest = next((run for run in runs if run.status == "Completed"), None)
     stats = (latest.stats or {}) if latest else {}
+    ml_count = int(stats.get("ml_findings") or 0)
+    if latest is None:
+        statement = terminology.REPORT_NO_ANALYSIS
+    elif stats.get("abstain_note"):
+        statement = terminology.REPORT_ML_STATEMENT_ABSTAINED
+    elif ml_count:
+        statement = terminology.REPORT_ML_STATEMENT
+    else:
+        statement = terminology.REPORT_ML_STATEMENT_NO_FINDINGS
     return {
         "analysis_runs": len(runs),
         "latest_run_id": latest.run_uid if latest else None,
@@ -549,9 +558,9 @@ def _ml_section(db: Session, case: Case) -> dict[str, Any]:
         "abstain_note": stats.get("abstain_note"),
         "abstain_reason": stats.get("abstain_reason"),
         "strategy": stats.get("strategy"),
-        "ml_findings": stats.get("ml_findings", 0),
+        "ml_findings": ml_count,
         "rule_findings": stats.get("rule_findings", 0),
-        "statement": terminology.REPORT_ML_STATEMENT,
+        "statement": statement,
         "disclaimer": terminology.ANOMALY_DISCLAIMER,
     }
 

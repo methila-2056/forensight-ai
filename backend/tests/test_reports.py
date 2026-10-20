@@ -277,7 +277,13 @@ def test_full_pipeline_report_sections_correct(client, make_case, upload_evidenc
     assert graph["disclaimer"] == terminology.CORRELATION_DISCLAIMER
 
     ml = sections["ai_ml_explanation"]
-    assert ml["statement"] == terminology.REPORT_ML_STATEMENT
+    if ml["abstain_note"]:
+        expected_ml_statement = terminology.REPORT_ML_STATEMENT_ABSTAINED
+    elif ml["ml_findings"]:
+        expected_ml_statement = terminology.REPORT_ML_STATEMENT
+    else:
+        expected_ml_statement = terminology.REPORT_ML_STATEMENT_NO_FINDINGS
+    assert ml["statement"] == expected_ml_statement
     assert ml["disclaimer"] == terminology.ANOMALY_DISCLAIMER
     assert ml["ml_findings"] is not None
 
@@ -575,10 +581,12 @@ def test_ml_abstention_is_reported_honestly(client, make_case, upload_evidence):
 
     body = _generate(client, case["case_id"])
     ml = body["sections"]["ai_ml_explanation"]
-    assert ml["statement"] == terminology.REPORT_ML_STATEMENT
-    # Whatever the engine decided, the report must reference the abstention
-    # wording when the analysis run recorded an abstention.
-    assert ml["abstain_note"] in (None, terminology.ML_ABSTAIN_NOTE)
+    # One normalized event yields one window, which is below ML_MIN_WINDOWS,
+    # so the engine abstains; the statement must not claim ML detection.
+    assert ml["abstain_note"] == terminology.ML_ABSTAIN_NOTE
+    assert ml["statement"] == terminology.REPORT_ML_STATEMENT_ABSTAINED
+    assert "identified statistically unusual" not in ml["statement"]
+    assert "no ML conclusion" in ml["statement"]
 
 
 def test_ml_abstain_note_from_latest_run_is_included(client, make_case, upload_evidence):
@@ -613,6 +621,109 @@ def test_ml_abstain_note_from_latest_run_is_included(client, make_case, upload_e
     ml = body["sections"]["ai_ml_explanation"]
     assert ml["abstain_note"] == terminology.ML_ABSTAIN_NOTE
     assert ml["abstain_reason"] == "fewer than the minimum number of windows"
+
+
+def _set_analyze_run_stats(case_id: str, **updates) -> None:
+    """Rewrite the ANALYZE run stats so report wording branches are testable."""
+    db = SessionLocal()
+    try:
+        from app.models import InvestigationRun, RunStage
+
+        case_row = db.scalar(select(Case).where(Case.case_id == case_id))
+        row = (
+            db.query(InvestigationRun)
+            .filter_by(case_id=case_row.id, stage=RunStage.ANALYZE.value)
+            .first()
+        )
+        stats = dict(row.stats or {})
+        stats.update(updates)
+        row.stats = stats
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_ml_statement_without_completed_run_is_no_analysis(client, make_case):
+    case = make_case()
+    body = _generate(client, case["case_id"])
+    ml = body["sections"]["ai_ml_explanation"]
+    assert ml["latest_run_status"] is None
+    assert ml["statement"] == terminology.REPORT_NO_ANALYSIS
+    assert "identified statistically unusual" not in ml["statement"]
+
+
+def test_ml_statement_zero_findings_when_completed_without_findings(
+    client, make_case, upload_evidence
+):
+    case = make_case()
+    upload_evidence(
+        case["case_id"],
+        "auth.csv",
+        b"timestamp,user,action\n2026-01-01T00:00:00Z,alice,login\n",
+    )
+    client.post(f"/api/cases/{case['case_id']}/process", json={})
+    client.post(f"/api/cases/{case['case_id']}/analyze", json={})
+    _set_analyze_run_stats(
+        case["case_id"],
+        abstain_note=None,
+        abstain_reason=None,
+        ml_findings=0,
+        strategy="A: per-case IsolationForest over event windows",
+    )
+
+    body = _generate(client, case["case_id"])
+    ml = body["sections"]["ai_ml_explanation"]
+    assert ml["abstain_note"] is None
+    assert ml["ml_findings"] == 0
+    assert ml["statement"] == terminology.REPORT_ML_STATEMENT_NO_FINDINGS
+    assert "identified statistically unusual" not in ml["statement"]
+    assert "no ML findings were recorded" in ml["statement"]
+
+
+def test_ml_statement_with_findings_describes_statistical_signals(
+    client, make_case, upload_evidence
+):
+    case = make_case()
+    upload_evidence(
+        case["case_id"],
+        "auth.csv",
+        b"timestamp,user,action\n2026-01-01T00:00:00Z,alice,login\n",
+    )
+    client.post(f"/api/cases/{case['case_id']}/process", json={})
+    client.post(f"/api/cases/{case['case_id']}/analyze", json={})
+    _set_analyze_run_stats(
+        case["case_id"],
+        abstain_note=None,
+        abstain_reason=None,
+        ml_findings=1,
+    )
+
+    body = _generate(client, case["case_id"])
+    ml = body["sections"]["ai_ml_explanation"]
+    assert ml["ml_findings"] == 1
+    assert ml["statement"] == terminology.REPORT_ML_STATEMENT
+    assert "requiring investigator review" in ml["statement"]
+    assert "not proof of malicious activity" in ml["statement"]
+    assert ml["disclaimer"] == terminology.ANOMALY_DISCLAIMER
+
+
+def test_ml_statement_wording_never_overclaims():
+    for statement in (
+        terminology.REPORT_ML_STATEMENT,
+        terminology.REPORT_ML_STATEMENT_ABSTAINED,
+        terminology.REPORT_ML_STATEMENT_NO_FINDINGS,
+    ):
+        lowered = statement.lower()
+        for banned in (
+            "authentic evidence",
+            "authenticated",
+            "proves malicious activity",
+            "proves an attacker",
+            "100%",
+            "admissible",
+            "probability",
+        ):
+            assert banned not in lowered, f"{banned!r} found in {statement!r}"
 
 
 # ---------------------------------------------------------------------------
